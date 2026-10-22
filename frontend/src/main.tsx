@@ -12,7 +12,63 @@ function Home(){const horses=useLoad<Page<Horse>>('/horses'); const races=useLoa
 function Pager({page,total,onChange}:{page:number;total:number;onChange:(n:number)=>void}){return <div className="pager"><button disabled={page===0} onClick={()=>onChange(page-1)}>← 이전</button><span>{page+1} / {Math.max(total,1)}</span><button disabled={page+1>=total} onClick={()=>onChange(page+1)}>다음 →</button></div>}
 function HorseList(){const [params,setParams]=useSearchParams();const q=params.get('q')||'',page=Number(params.get('page')||0);const [input,setInput]=useState(q);const sort=params.get('sort')||'name';const direction=params.get('direction')||'asc';const {data,error}=useLoad<Page<Horse>>('/horses?'+new URLSearchParams({q,page:String(page),sort,direction}));return <section><div className="eyebrow">HORSE DATABASE</div><h1>경주마 아카이브</h1><p className="sub">이름으로 찾고, 기록으로 알아보세요.</p><form className="searchbar" onSubmit={e=>{e.preventDefault();setParams({q:input,sort,direction});}}><label className="sr" htmlFor="horse-search">경주마 이름</label><input id="horse-search" placeholder="경주마 이름 전체 또는 일부 입력" value={input} onChange={e=>setInput(e.target.value)} maxLength={100}/><button>검색 ↗</button></form><div className="list-top"><span>총 <b>{data?.totalElements??'—'}</b>두 · 페이지당 20건</span><div><label className="sr" htmlFor="sort">정렬 기준</label><select id="sort" value={sort} onChange={e=>setParams({q,sort:e.target.value,direction})}><option value="name">이름순</option><option value="sex">성별순</option><option value="birthDate">생년순</option></select><label className="sr" htmlFor="direction">정렬 방향</label><select id="direction" value={direction} onChange={e=>setParams({q,sort,direction:e.target.value})}><option value="asc">오름차순</option><option value="desc">내림차순</option></select></div></div><Status error={error} loading={!data}/>{data?.content.length===0&&<p className="notice">검색 결과가 없습니다</p>}<div className="horse-grid">{data?.content.map(h=><Link key={h.id} to={'/horses/'+h.id} className="horse-card"><div className="horse-avatar">♞<span>{h.sex}</span></div><div><span className="eyebrow">HORSE NO. {String(h.id).padStart(3,'0')}</span><h3>{h.name}</h3><p>{h.birthDate.slice(0,4)}년생 · {h.color}</p><small>{h.trainer}</small></div><span className="arrow">↗</span></Link>)}</div>{data&&<Pager page={page} total={data.totalPages} onChange={n=>setParams({q,sort,direction,page:String(n)})}/>}</section>}
 function HorseDetail(){const {id}=useParams();const {data:h,error}=useLoad<Horse>('/horses/'+id);const history=useLoad<Entry[]>('/horses/'+id+'/history');return <section><Link className="breadcrumb" to="/horses">← 경주마 아카이브</Link><Status error={error} loading={!h}/>{h&&<><div className="detail-head"><div className="detail-icon">♞</div><div><div className="eyebrow">HORSE PROFILE · {h.id}</div><h1>{h.name}</h1><p>{h.sex} · {h.birthDate} 출생 · {h.color}</p></div></div><div className="profile-actions"><FavoriteButton id={h.id}/><Link className="button secondary" to={"/horses/"+h.id+"/pedigree"}>3대 혈통 탐색 ↗</Link></div><div className="facts"><div><span>조교사</span><b>{h.trainer}</b></div><div><span>부마</span>{h.sire?<Link to={'/horses/'+h.sire.id}>{h.sire.name} ↗</Link>:<b>정보 없음</b>}</div><div><span>모마</span>{h.dam?<Link to={'/horses/'+h.dam.id}>{h.dam.name} ↗</Link>:<b>정보 없음</b>}</div></div><div className="section-title"><h2>출전 전적</h2><span>최신 경주부터 표시</span></div><Status error={history.error} loading={!history.data}/>{history.data&&<EntryTable entries={history.data} mode="horse"/>}</>}</section>}
-function EntryTable({entries,mode}:{entries:Entry[];mode:'horse'|'race'}){return entries.length===0?<p className="notice">출전 기록이 없습니다.</p>:<div className="table-wrap"><table><thead><tr><th>{mode==='horse'?'경주일':'마번'}</th><th>{mode==='horse'?'경주명':'경주마'}</th><th>기수</th><th>주파기록(초)</th><th>착순</th></tr></thead><tbody>{entries.map(e=><tr key={e.raceId+'-'+e.horseId}><td>{mode==='horse'?e.raceDate:String(e.number).padStart(2,'0')}</td><td><Link to={mode==='horse'?'/races/'+e.raceId:'/horses/'+e.horseId}>{mode==='horse'?e.raceName:e.horseName} ↗</Link></td><td>{e.jockey}</td><td>{e.timeSeconds??'미확정'}</td><td><span className={e.finishPosition===1?'rank winner':'rank'}>{e.finishPosition??'—'}</span></td></tr>)}</tbody></table></div>}
+function EntryTable({entries,mode}:{entries:Entry[];mode:'horse'|'race'}) {
+ if(entries.length===0)return <p className="notice">출전 기록이 없습니다.</p>;
+ const asOf=(value:string)=>new Intl.DateTimeFormat('ko-KR',{
+  timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false
+ }).format(new Date(value));
+ return <>
+  <p className="odds-note">단승 배당은 1위 적중 시 원금을 포함한 배수입니다. 현재 값은 가상 샘플이며 실시간 배당이 아닙니다. 인기 순위는 착순·모델 예측 순위와 다릅니다.</p>
+  <div className="table-wrap" role="region" aria-label={mode==='horse'?'출전 전적 표':'출주마 및 배당 표'} tabIndex={0}>
+   <table>
+    <thead><tr>
+     <th scope="col">{mode==='horse'?'경주일':'마번'}</th>
+     <th scope="col">{mode==='horse'?'경주명':'경주마'}</th>
+     <th scope="col">기수</th><th scope="col">인기</th><th scope="col">단승 배당</th>
+     <th scope="col">주파기록(초)</th><th scope="col">착순</th>
+    </tr></thead>
+    <tbody>{entries.map(e=><tr key={e.raceId+'-'+e.horseId}>
+     <td>{mode==='horse'?e.raceDate:String(e.number).padStart(2,'0')}</td>
+     <td><Link to={mode==='horse'?'/races/'+e.raceId:'/horses/'+e.horseId}>{mode==='horse'?e.raceName:e.horseName} ↗</Link></td>
+     <td>{e.jockey}</td>
+     <td className="popularity-value">{e.popularityRank==null?'미제공':e.popularityRank+'위'}</td>
+     <td className="odds-value">{e.winOdds==null?'미제공':<>
+      <strong>{e.winOdds.toFixed(1)}배</strong>
+      <small>{e.oddsSource==='synthetic_fixture'?'가상 샘플':'제공 자료'}</small>
+      {e.oddsAsOf&&<time dateTime={e.oddsAsOf}>{asOf(e.oddsAsOf)} KST 기준</time>}
+     </>}</td>
+     <td>{e.timeSeconds??'미확정'}</td>
+     <td><span className={e.finishPosition===1?'rank winner':'rank'}>{e.finishPosition??'—'}</span></td>
+    </tr>)}</tbody>
+   </table>
+  </div>
+ </>;
+}
 function RaceList(){const [params,setParams]=useSearchParams();const q=params.get('q')||'',date=params.get('date')||'',page=Number(params.get('page')||0);const [input,setInput]=useState(q);const [day,setDay]=useState(date);const {data,error}=useLoad<Page<Race>>('/races?'+new URLSearchParams({...date?{date}:{},q,page:String(page)}));return <section><div className="eyebrow">RACES & RESULTS</div><h1>경주와 그 순간의 기록</h1><p className="sub">개최일과 경주명으로 아카이브를 탐색하세요.</p><form className="searchbar" onSubmit={e=>{e.preventDefault();setParams({...day?{date:day}:{},q:input});}}><label className="sr" htmlFor="race-search">경주명</label><input id="race-search" value={input} placeholder="경주명 입력" maxLength={150} onChange={e=>setInput(e.target.value)}/><label className="sr" htmlFor="race-date">개최일</label><input id="race-date" type="date" value={day} onChange={e=>setDay(e.target.value)}/><button>검색 ↗</button></form><Status error={error} loading={!data}/>{data?.content.length===0&&<p className="notice">검색 결과가 없습니다</p>}<div className="race-grid">{data?.content.map(r=><Link key={r.id} to={'/races/'+r.id} className="race-card"><div className="card-top"><span>{r.raceDate}</span><span className="pill">{r.surface}</span></div><h3>{r.name}</h3><p>{r.venue}</p><div className="card-bottom"><span>{r.distance.toLocaleString()}m</span><b>↗</b></div></Link>)}</div>{data&&<Pager page={page} total={data.totalPages} onChange={n=>setParams({...date?{date}:{},q,page:String(n)})}/>}</section>}
-function RacePage(){const {id}=useParams();const {data,error}=useLoad<RaceDetail>('/races/'+id);return <section><Link className="breadcrumb" to="/races">← 경주 아카이브</Link><Status error={error} loading={!data}/>{data&&<><div className="eyebrow">RACE DETAIL · {data.race.raceDate}</div><h1>{data.race.name}</h1><p className="sub">{data.race.venue} · {data.race.surface} {data.race.distance}m</p><div className="section-title"><h2>출주마 및 착순 결과</h2><Link className="button secondary" to={"/races/"+id+"/prediction"}>실험 모델 예측 ↗</Link></div><EntryTable entries={[...data.entries].sort((a,b)=>(a.finishPosition??999)-(b.finishPosition??999))} mode="race"/></>}</section>}
+function RacePage() {
+ const {id}=useParams();
+ const {data,error}=useLoad<RaceDetail>('/races/'+id);
+ const [sort,setSort]=useState<'finishPosition'|'number'|'popularityRank'|'winOdds'>('finishPosition');
+ const entries=[...(data?.entries??[])].sort((a,b)=>
+  ((a[sort]??Infinity)-(b[sort]??Infinity)) || a.number-b.number);
+ return <section>
+  <Link className="breadcrumb" to="/races">← 경주 아카이브</Link>
+  <Status error={error} loading={!data}/>
+  {data&&<>
+   <div className="eyebrow">RACE DETAIL · {data.race.raceDate}</div>
+   <h1>{data.race.name}</h1>
+   <p className="sub">{data.race.venue} · {data.race.surface} {data.race.distance}m</p>
+   <div className="section-title"><h2>출주마 및 착순 결과</h2>
+    <Link className="button secondary" to={"/races/"+id+"/prediction"}>실험 모델 예측 ↗</Link>
+   </div>
+   <div className="entry-controls"><label htmlFor="entry-sort">출주마 정렬</label>
+    <select id="entry-sort" value={sort} onChange={e=>setSort(e.target.value as typeof sort)}>
+     <option value="finishPosition">착순순</option><option value="number">마번순</option>
+     <option value="popularityRank">인기순</option><option value="winOdds">단승 배당 낮은순</option>
+    </select>
+   </div>
+   <EntryTable entries={entries} mode="race"/>
+  </>}
+ </section>;
+}
 createRoot(document.getElementById('root')!).render(<React.StrictMode><BrowserRouter><AuthProvider><Layout/></AuthProvider></BrowserRouter></React.StrictMode>);

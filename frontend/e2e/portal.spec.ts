@@ -39,3 +39,33 @@ test('network failures display a Korean recovery message',async({page})=>{
  await page.goto('/horses');
  await expect(page.getByRole('alert')).toContainText('네트워크 상태를 확인');
 });
+
+test('popularity, win odds, sorting and unavailable snapshots',async({page})=>{
+ await page.goto('/races/1');
+ await expect(page.getByRole('columnheader',{name:'인기',exact:true})).toBeVisible();
+ await expect(page.getByRole('columnheader',{name:'단승 배당',exact:true})).toBeVisible();
+ await expect(page.locator('.odds-note')).toContainText('가상 샘플');
+ await expect(page.locator('.odds-value strong')).toHaveCount(12);
+ await expect(page.locator('.odds-value time').first()).toContainText('KST 기준');
+ await page.getByLabel('출주마 정렬').selectOption('popularityRank');
+ await expect(page.locator('tbody tr').first().locator('.popularity-value')).toHaveText('1위');
+ await expect(page.locator('tbody tr').first().locator('.odds-value strong')).toHaveText('2.4배');
+ await page.getByLabel('출주마 정렬').selectOption('winOdds');
+ const odds=await page.locator('.odds-value strong').allTextContents();
+ const values=odds.map(value=>parseFloat(value));expect(values).toEqual([...values].sort((a,b)=>a-b));
+ await page.getByLabel('출주마 정렬').selectOption('number');
+ await expect(page.locator('tbody tr').first().locator('td').first()).toHaveText('01');
+ await page.getByLabel('출주마 정렬').selectOption('finishPosition');
+ await expect(page.locator('tbody tr').first().locator('.rank')).toHaveText('1');
+ await page.goto('/horses/22');await expect(page.locator('.odds-value strong')).toHaveCount(7);
+ await page.goto('/races/8');
+ await expect(page.locator('tbody tr')).toHaveCount(12);
+ await page.getByLabel('출주마 정렬').selectOption('winOdds');
+ await expect(page.locator('tbody tr').last().locator('.odds-value')).toHaveText('미제공');
+ await expect(page.locator('tbody tr').last().locator('.popularity-value')).toHaveText('미제공');
+ await page.setViewportSize({width:375,height:812});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBeTruthy();
+ const region=page.getByRole('region',{name:'출주마 및 배당 표'});
+ await region.evaluate(element=>element.scrollLeft=element.scrollWidth);
+ await expect(page.getByRole('columnheader',{name:'착순',exact:true})).toBeInViewport();
+});

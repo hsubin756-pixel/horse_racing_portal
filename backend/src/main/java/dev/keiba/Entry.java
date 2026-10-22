@@ -9,5 +9,9 @@ public class Entry {
  String jockey;
  Integer finishPosition;
  java.math.BigDecimal timeSeconds;
+ Integer popularityRank;
+ @Column(precision=7,scale=1) java.math.BigDecimal winOdds;
+ String oddsSource;
+ java.time.Instant oddsAsOf;
  protected Entry() {}
 }

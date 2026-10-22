@@ -11,7 +11,7 @@ class CatalogService {
  record HorseRef(Long id,String name) {}
  record HorseView(Long id,String name,String sex,LocalDate birthDate,String color,String trainer,HorseRef sire,HorseRef dam) {}
  record RaceView(Long id,String name,LocalDate raceDate,String venue,int distance,String surface) {}
- record EntryView(Long horseId,String horseName,Long raceId,String raceName,LocalDate raceDate,int number,String jockey,Integer finishPosition,java.math.BigDecimal timeSeconds) {}
+ record EntryView(Long horseId,String horseName,Long raceId,String raceName,LocalDate raceDate,int number,String jockey,Integer finishPosition,java.math.BigDecimal timeSeconds,Integer popularityRank,java.math.BigDecimal winOdds,String oddsSource,java.time.Instant oddsAsOf) {}
  record PageView<T>(List<T> content,int page,int totalPages,long totalElements) {}
  record RaceDetail(RaceView race,List<EntryView> entries) {}
  Horse requireHorse(Long id) { return horses.findById(id).orElseThrow(()->new ApiException(404,"경주마를 찾을 수 없습니다.")); }
@@ -19,7 +19,7 @@ class CatalogService {
  HorseRef ref(Horse h) { if(h==null) return null; h=org.hibernate.Hibernate.unproxy(h,Horse.class); return new HorseRef(h.id,h.name); }
  HorseView view(Horse h) { h=org.hibernate.Hibernate.unproxy(h,Horse.class); return new HorseView(h.id,h.name,h.sex,h.birthDate,h.color,h.trainer,ref(h.sire),ref(h.dam)); }
  RaceView view(Race r) { r=org.hibernate.Hibernate.unproxy(r,Race.class); return new RaceView(r.id,r.name,r.raceDate,r.venue,r.distance,r.surface); }
- EntryView view(Entry e) { Horse h=org.hibernate.Hibernate.unproxy(e.horse,Horse.class); Race r=org.hibernate.Hibernate.unproxy(e.race,Race.class); return new EntryView(h.id,h.name,r.id,r.name,r.raceDate,e.number,e.jockey,e.finishPosition,e.timeSeconds); }
+ EntryView view(Entry e) { Horse h=org.hibernate.Hibernate.unproxy(e.horse,Horse.class); Race r=org.hibernate.Hibernate.unproxy(e.race,Race.class); return new EntryView(h.id,h.name,r.id,r.name,r.raceDate,e.number,e.jockey,e.finishPosition,e.timeSeconds,e.popularityRank,e.winOdds,e.oddsSource,e.oddsAsOf); }
  PageView<HorseView> horses(String q,int page,String sort,String direction) {
   if(page<0 || page>100000 || !Set.of("name","sex","birthDate").contains(sort) || !Set.of("asc","desc").contains(direction) || q.length()>100) throw new ApiException(400,"검색 조건을 확인하세요.");
   Page<Horse> p=horses.findByNameContainingIgnoreCase(q,PageRequest.of(page,20,Sort.by(Sort.Direction.fromString(direction),sort).and(Sort.by("id"))));

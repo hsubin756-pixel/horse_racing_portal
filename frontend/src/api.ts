@@ -17,6 +17,6 @@ export function useLoad<T>(path: string) {
 export type Horse={id:number;name:string;sex:string;birthDate:string;color:string;trainer:string;sire:Ref|null;dam:Ref|null};
 export type Ref={id:number;name:string};
 export type Race={id:number;name:string;raceDate:string;venue:string;distance:number;surface:string};
-export type Entry={horseId:number;horseName:string;raceId:number;raceName:string;raceDate:string;number:number;jockey:string;finishPosition:number|null;timeSeconds:number|null};
+export type Entry={horseId:number;horseName:string;raceId:number;raceName:string;raceDate:string;number:number;jockey:string;finishPosition:number|null;timeSeconds:number|null;popularityRank:number|null;winOdds:number|null;oddsSource:string|null;oddsAsOf:string|null};
 export type Page<T>={content:T[];page:number;totalPages:number;totalElements:number};
 export type RaceDetail={race:Race;entries:Entry[]};
