@@ -16,3 +16,9 @@
 - real MySQL HTTP black-box 테스트 3개 통과 (검색, 20건 페이지 분리, 생년 정렬, 빈 결과, 부모 상세, 역순 전적, 경주 일자 검색, 12개 착순 및 입력 오류).
 - Vite /api 프록시 경주 상세 조회에서 출주마 12건 확인.
 - 초기 SQL CHECK의 MySQL auto_increment 제약과 JPA lazy proxy 필드 접근으로 null 응답되는 결함을 수정하고 동일 테스트 재실행 통과.
+
+## Phase 3
+- Gradle build 성공, JWT 단위 테스트 4개 통과 (서명/claims, 만료 거부, 다른 키 거부, 약한 키 설정 거부).
+- 실제 MySQL API 테스트 누적 6개 통과. 회원가입·중복·로그인 실패·잘못된 입력·즐겨찾기 추가/삭제·다른 회원 목록 분리·다른 회원 삭제 영향 없음·로그아웃 토큰 재사용 거부·변조 토큰 거부를 검증.
+- SQL로 저장된 비밀번호가 BCrypt cost 12 형식인지 검사, 위반 0건. 비밀값 로그 출력 없음.
+- React production build 통과. 브라우저 상호작용 검증은 Phase 6에서 진행.

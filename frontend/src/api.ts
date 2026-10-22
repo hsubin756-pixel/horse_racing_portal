@@ -3,8 +3,9 @@ let token: string | null = null;
 export function setToken(value: string | null) { token=value; }
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
  const response = await fetch('/api'+path, {...options, headers: {'Content-Type':'application/json', ...(token ? {Authorization: 'Bearer '+token}: {}), ...options.headers}});
+ if(response.status===401 && token) { window.dispatchEvent(new Event('auth-expired')); }
  if (!response.ok) { const error = await response.json().catch(()=>({message:'서버 연결을 확인하세요.'})); throw new Error(error.message || '요청을 처리할 수 없습니다.'); }
- return response.status===204 ? undefined as T : response.json();
+ const text=await response.text(); return text ? JSON.parse(text) as T : undefined as T;
 }
 export function useLoad<T>(path: string) {
  const [data,setData]=useState<T|null>(null), [error,setError]=useState('');
