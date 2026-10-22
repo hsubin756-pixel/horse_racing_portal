@@ -47,6 +47,16 @@
 - 한 차례 장애 주입과 브라우저 예측 검사를 동시에 실행하여 예측 화면 검사가 실패. 서비스 복구 후 검사를 단독으로 재실행했습니다. 애플리케이션 성공으로 오인하지 않았습니다.
 
 ## 검증하지 않은 사항
-외부 서버 배포/HTTPS/운영 데이터 복구, 실제 경마 ML 정확도, 대규모 DB 및 장기 부하, 다른 브라우저/Safari/Firefox, 원격 GitHub Actions 실행, 새 cloud task에서의 로컬 커밋 및 Docker 볼륨 복원. 현재 원격 Git 저장소는 커밋/브랜치가 없으므로 원격 체크아웃으로 개발 결과가 재현된다고 주장하지 않습니다.
+외부 서버 배포/HTTPS/운영 데이터 복구, 실제 경마 ML 정확도, 대규모 DB 및 장기 부하, 다른 브라우저/Safari/Firefox, 원격 GitHub Actions 실행, 새 cloud task에서의 로컬 커밋 및 Docker 볼륨 복원. 초기 온보딩 당시 원격 저장소는 비어 있었으며, 후속 원격 게시·복제 결과는 아래에 기록합니다.
 
 최종 단독 브라우저 실행: **3 passed (6.1s)**, 검색 요청부터 결과 표시까지 **167ms**. 사용자 흐름과 모바일 검증 모두 통과했습니다. 캡처는 docs/images에 보관했습니다.
+
+
+## 후속 게시 및 재현성 확인 — 2026-10-22
+- 실행 중인 Compose 서비스의 준비 확인 및 실제 MySQL API 테스트 9개 재실행 통과.
+- 커밋 e2d3a3d의 소스만 git archive로 새 디렉터리에 추출. 기존 .env, .runtime, node_modules, build 산출물 없이 scripts/build.sh 실행 성공.
+- 새 디렉터리에서 Gradle build/JWT 4개 테스트, Vite 7.3.7 production build, 고정 Python 의존성 신규 설치, 모델 학습/평가와 ML 2개 테스트 통과.
+- GitHub main으로 푸시 성공. 원격 refs/heads/main의 전체 SHA가 로컬 HEAD와 일치함을 확인.
+- GitHub에서 main을 새 디렉터리에 실제 clone하여 소스의 Git tree 일치 및 추적 파일 93개를 확인. .env와 .runtime은 원격 복제에 포함되지 않음.
+- 위 빌드는 원격 복제와 동일한 Git tree의 소스 추출본에서 실행했으며, 원격 CI runner나 새 cloud task에서 실행한 것으로 간주하지 않습니다.
+- GitHub API 요청은 Forbidden으로 거부되어 Actions 실행 결과 조회는 미검증. 저장소의 Actions 화면에서 확인할 수 있습니다.

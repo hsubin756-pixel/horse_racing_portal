@@ -13,11 +13,12 @@ React 19 · Vite 7.3.7 · TypeScript · React Router / Java 21 · Spring Boot 3.
 필수: Linux, Docker 엔진과 Compose v2, Python 3.12 및 venv, Node 22 이상. Java/Gradle은 공식 빌드 컨테이너로도 사용할 수 있습니다.
 
 ```bash
-cd /workspace/horse_racing_portal
+git clone https://github.com/hsubin756-pixel/horse_racing_portal.git
+cd horse_racing_portal
 ./scripts/up.sh
 ```
 
-일반 PC에서는 체크아웃 디렉터리로 이동해서 동일 명령을 실행합니다. 이 스크립트는 기존 `.env`를 보존하며, 없으면 개발용 비밀값을 무작위로 생성합니다. `.env`는 0600 권한이고 Git에서 제외됩니다. 이미지 빌드, MySQL/Flyway 샘플 적재, 서비스 시작 및 실제 API 준비 확인까지 실행합니다. 처음 빌드는 의존성 다운로드가 필요합니다. scripts/build.sh가 백엔드 JUnit/ML 테스트와 프론트 빌드를 실행한 뒤 Docker runtime 이미지를 조립합니다.
+이미 체크아웃한 클라우드 환경에서는 `/workspace/horse_racing_portal`로 이동한 뒤 `./scripts/up.sh`를 실행합니다. 이 스크립트는 기존 `.env`를 보존하며, 없으면 개발용 비밀값을 무작위로 생성합니다. `.env`는 0600 권한이고 Git에서 제외됩니다. 이미지 빌드, MySQL/Flyway 샘플 적재, 서비스 시작 및 실제 API 준비 확인까지 실행합니다. 처음 빌드는 의존성 다운로드가 필요합니다. scripts/build.sh가 백엔드 JUnit/ML 테스트와 프론트 빌드를 실행한 뒤 Docker runtime 이미지를 조립합니다.
 
 웹 포트 5173, API 8080, ML 8000, DB 3306은 모두 호스트 loopback에만 바인딩됩니다. 이 클라우드 온보딩 UI에서는 로컬 웹 미리보기를 제공하지 않습니다. 브라우저 접근이 가능한 별도 개발 머신에서는 5173 포트로 접속하세요. 신규 회원은 회원가입 화면에서 직접 생성합니다. 기본 관리자/고정 비밀번호 계정은 없습니다.
 
@@ -79,3 +80,5 @@ API 테스트는 실행 중인 Spring/MySQL/FastAPI를 사용하며 테스트 �
 OpenAPI는 실행 서버의 `/v3/api-docs`, Swagger UI는 `/swagger-ui/index.html`입니다. 프론트 프록시는 `/api`만 전달하므로 문서는 API 포트에서 확인합니다.
 
 예측 모델의 실제 경마 성능은 검증되지 않았습니다. [모델 보고서](ml/model-report.json)의 합성 실험 수치를 실제 정확도로 인용하지 마세요. 현재 검증 범위와 제한은 TEST_REPORT.md에 기록합니다.
+
+GitHub `main`에 소스가 게시되어 있습니다. [Actions 실행 목록](https://github.com/hsubin756-pixel/horse_racing_portal/actions)에서 원격 CI 결과를 확인할 수 있습니다. 이 환경에서는 GitHub API 접근 제한으로 원격 CI 성공 여부를 확인하지 못했습니다.
