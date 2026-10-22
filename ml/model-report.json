@@ -1,0 +1,17 @@
+{
+  "modelKind": "synthetic_experiment",
+  "seed": 42,
+  "features": [
+    "priorMeanFinish",
+    "starts",
+    "distance"
+  ],
+  "trainingRows": 1920,
+  "testRows": 480,
+  "split": "temporal: first 80 races train, last 20 test; independent fictional cohort",
+  "accuracy": 0.875,
+  "majorityBaselineAccuracy": 0.875,
+  "rocAuc": 0.7364682539682539,
+  "brierScore": 0.1011240709006087,
+  "limitations": "SYNTHETIC ONLY. No real-world predictive ability evaluated. Scores are uncalibrated model outputs, not guaranteed probabilities. Catalog cohort differs from training population."
+}
