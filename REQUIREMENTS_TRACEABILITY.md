@@ -55,3 +55,17 @@ Must 14개는 실제 구현 및 위 검증으로 확인했습니다. Should 9개
 
 ## 후속 사용자 요청 — 인기와 단승 배당
 원본 32개 ID와 별개로 출주마 및 과거 전적의 인기·단승 배당·출처·기준 시각, 인기/배당 정렬, null 미제공 처리를 추가했습니다. `V4__entry_odds.sql`, Entry/CatalogService, EntryTable/RacePage에 구현했으며 `tests/test_odds.py`와 브라우저의 배당 시나리오로 검증합니다. 실시간 데이터 공급원과 확정 환급표는 아직 없습니다.
+
+
+## 후속 사용자 요청 — 비교·통계·관심 일정
+원본 SRS의 ID를 변경하지 않고 아래 추가 기능을 추적합니다.
+
+| 추가 요청 | 구현 | 검증 |
+|---|---|---|
+| 최대 4두 비교, 최근 5경주·거리/주로별 기록 | AnalyticsService/Controller, analytics.tsx `/compare` | AnalyticsServiceTest, test_analytics.py, 브라우저 비교/모바일 |
+| 말·기수 조건별 성적, 기간/거리/주로 필터 | AnalyticsService/Controller, analytics.tsx `/statistics` | 같은 통계 단위/API 검사, 브라우저 기수 변경·필터·빈 전적 |
+| 관심 경주 저장/목록/삭제와 회원별 분리 | V5, RaceFavorite*, WatchlistService/Controller, watchlist.tsx | test_watchlist.py 소유권/중복/인증/동시 요청, 브라우저 저장·삭제 |
+| 관심 말 출전과 저장 경주의 예정 일정 병합 | Entry/RaceRepository, WatchlistService, `/watchlist` | WatchlistServiceTest 시간대/병합, test_watchlist.py, 브라우저 일정 |
+| 넷케이바와 기능 차이 확인 | docs/NETKEIBA_COMPARISON.md | 현재 포털 구현은 코드/실행으로 확인. 넷케이바 최신 화면은 프록시 403으로 미확인 |
+
+가상 데이터 기반 기능 검증입니다. 실시간 인기·배당/조합별 환급·상세 출마표·뉴스/영상/커뮤니티·외부 알림은 이번 추가 기능에 포함되지 않습니다.

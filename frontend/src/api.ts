@@ -9,9 +9,9 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
  if (!response.ok) { const error = await response.json().catch(()=>({message:'서버 연결을 확인하세요.'})); throw new Error(error.message || '요청을 처리할 수 없습니다.'); }
  const text=await response.text(); return text ? JSON.parse(text) as T : undefined as T;
 }
-export function useLoad<T>(path: string) {
+export function useLoad<T>(path: string | null) {
  const [data,setData]=useState<T|null>(null), [error,setError]=useState('');
- useEffect(()=>{ let active=true; setData(null); setError(''); api<T>(path).then(d=>{if(active)setData(d);}).catch(e=>{if(active)setError(e.message);}); return ()=>{active=false;};},[path]);
+ useEffect(()=>{ let active=true; setData(null); setError(''); if(path===null)return; api<T>(path).then(d=>{if(active)setData(d);}).catch(e=>{if(active)setError(e.message);}); return ()=>{active=false;};},[path]);
  return {data,error};
 }
 export type Horse={id:number;name:string;sex:string;birthDate:string;color:string;trainer:string;sire:Ref|null;dam:Ref|null};

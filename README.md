@@ -73,10 +73,12 @@ API 테스트는 실행 중인 Spring/MySQL/FastAPI를 사용하며 테스트 �
 - 회원가입/로그인 → 본인 즐겨찾기 추가·목록·삭제, 중복 거부.
 - JWT는 메모리에 보관하고 30분에 만료합니다. 새로고침 시 다시 로그인합니다. 서버 DB에서 로그아웃 토큰을 철회합니다.
 - 양쪽 부모의 3대 혈통 트리, 누락 표시 및 제한된 재귀.
+- 최대 4두 비교와 말·기수 조건별 성적: 거리/주로/기간 필터, 최근 5경주, 승률·3위 이내 비율.
+- 회원별 관심 경주 저장·삭제, 관심 말 출전을 합친 90일 일정과 사이트 내 안내.
 - 회원만 Spring을 통해 FastAPI 예측 요청. 합성 실험·면책 표시와 서비스 장애 안내.
 
 ## 문서
-[설계](ARCHITECTURE.md) · [ERD](ERD.md) · [API](API.md) · [요구사항 추적](REQUIREMENTS_TRACEABILITY.md) · [결정](DECISIONS.md) · [검증 결과](TEST_REPORT.md) · [진행](PROGRESS.md) · [학습용 호출 흐름](docs/LEARNING.md) · [디렉터리](docs/STRUCTURE.md) · [운영 준비](docs/DEPLOYMENT.md) · [실제 데이터 평가](docs/ML_DATA.md) · [원본 SRS](docs/SRS.docx).
+[설계](ARCHITECTURE.md) · [ERD](ERD.md) · [API](API.md) · [요구사항 추적](REQUIREMENTS_TRACEABILITY.md) · [결정](DECISIONS.md) · [검증 결과](TEST_REPORT.md) · [진행](PROGRESS.md) · [학습용 호출 흐름](docs/LEARNING.md) · [디렉터리](docs/STRUCTURE.md) · [운영 준비](docs/DEPLOYMENT.md) · [실제 데이터 평가](docs/ML_DATA.md) · [넷케이바 기능 비교와 확인 제한](docs/NETKEIBA_COMPARISON.md) · [원본 SRS](docs/SRS.docx).
 
 OpenAPI는 실행 서버의 `/v3/api-docs`, Swagger UI는 `/swagger-ui/index.html`입니다. 프론트 프록시는 `/api`만 전달하므로 문서는 API 포트에서 확인합니다.
 
@@ -87,3 +89,5 @@ GitHub `main`에 소스가 게시되어 있습니다. [Actions 실행 목록](ht
 2026-10-22 개선: JWT 필수 claims 검사, ML 응답/시간초과 처리, 검색 wildcard 문자 처리, DB 연결 사용 개선, 네트워크 오류 한국어 안내, 프록시 로그인 요청 제한을 추가했습니다. 확장 합성 DB의 동시 50명·30초 조회 시험은 14,017요청, 오류 0건, p95 246ms였습니다. 이는 장기 운영 성능 보장이 아닙니다. 백업의 별도 스키마 복원과 HTTPS 배포 구성을 준비했으며, 공개 배포에는 서버·도메인이 필요합니다.
 
 경주 상세와 말의 과거 전적에 표시하는 단승 배당은 원금을 포함한 배수(예: 2.4배)입니다. 현재 모든 값은 가상 샘플로 실제 배당·확정 환급금이 아닙니다. 인기 순위는 착순 또는 ML 예측 순위와 별도입니다. 예정 경주에는 미제공 상태 예시가 1건 있습니다. 기존 설치는 최신 소스를 받은 뒤 `./scripts/up.sh`로 재빌드하면 Flyway V4가 기존 DB를 확장하며 회원·즐겨찾기를 보존합니다.
+
+추가 화면은 `/compare`(경주마 비교), `/statistics`(말·기수 조건별 성적), `/watchlist`(회원 관심 일정)입니다. 말 상세의 비교/성적 링크와 경주 출주표의 기수 링크에서도 이동합니다. `git pull --ff-only` 후 기존 Python 3.12 환경에서 `./scripts/up.sh`를 실행하면 V5가 관심 경주 테이블을 추가합니다. 기존 데이터 볼륨을 삭제하지 않습니다. 일정은 사이트를 조회할 때 보여주며 이메일·푸시 발송은 포함하지 않습니다.

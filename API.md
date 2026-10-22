@@ -37,3 +37,22 @@
 네 값은 동일한 스냅샷으로 함께 저장되며 미제공 항목은 모두 null입니다. 숫자 0으로 대체하지 않습니다. 완료/예정 경주의 샘플 96건 중 95건을 제공하며, 예정 경주 8에는 미제공 예시 1건이 있습니다. 응답은 마번 순서를 유지하며, 화면에서 착순·마번·인기·배당 오름차순으로 정렬합니다. null은 화면 정렬의 끝으로 보냅니다.
 
 현재 값은 고정된 가상 데이터입니다. 실제 배당 API 연동·실시간 갱신·복승/삼복승 등 조합별 확정 환급표는 구현 범위에 포함하지 않습니다. 실제 자료 연동 시 공급자의 사용 허가, 시장 종류, 마감 여부와 기준 시각을 확인하고 인기·배당·출처·시각을 원자적으로 갱신해야 합니다.
+
+## 비교·조건별 성적·관심 일정
+
+| 메서드/경로 | 인증 | 내용 |
+|---|---|---|
+| GET /api/horses/compare?ids=22,32 | 공개 | 중복 없는 1~4두, 요청 순서대로 비교 |
+| GET /api/horses/{id}/stats | 공개 | 1두 비교 응답과 같은 구조의 성적 |
+| GET /api/jockeys?q=이름 | 공개 | 가상 기수 이름 부분 검색, 최대 50개 |
+| GET /api/jockeys/stats?name=기수명 | 공개 | 해당 가상 기수의 조건별 성적 |
+| GET /api/race-favorites | 회원 | 본인 관심 경주 목록, 개최일/ID 순 |
+| POST /api/race-favorites/{id} | 회원 | 저장 201, 중복 409, 없는 경주 404 |
+| DELETE /api/race-favorites/{id} | 회원 | 본인 저장만 삭제, 204 |
+| GET /api/my-schedule | 회원 | 오늘~90일 뒤의 관심 경주·관심 말 출전, 경주별 병합 |
+
+성적 필터는 선택적인 `distance`(400~10000), `surface`(잔디/더트/장애), `from`, `to`(ISO 날짜, 양끝 포함)입니다. 잘못된 조건은 한국어 400, 없는 말·기수는 404입니다. 기수는 현재 가상 데이터의 이름으로 식별하며 실제 공급원 연결 시 고유 기수 ID를 도입해야 합니다.
+
+비교 응답은 `asOfDate`, `dataKind=synthetic_fixture`, `filter`, `horses[{horse,statistics}]`입니다. 기수 응답은 `asOfDate`, `dataKind`, `jockey`, `filter`, `statistics`입니다. `statistics`는 `totals`, `byDistance`, `bySurface`, `recent`(최신 5개)를 포함합니다. `totals`는 `starts`, `wins`, `top3`, `winRate`, `top3Rate`, `averageFinish`, `bestFinish`입니다. 비율은 0~100 단위이며, 표본 0이면 비율/평균/최고 착순은 null입니다. 완료 착순이 있고 개최일이 한국·일본 기준 오늘 이하인 전적만 집계합니다. 미래/미완료 전적은 제외하며 필터를 적용한 표본 안에서 조건별 성적과 최근 5경주를 계산합니다.
+
+일정 응답은 `asOfDate`, `through`, `races[{race,savedRace,favoriteHorses}]`입니다. 예정일 범위에 있고 결과가 아직 하나도 기록되지 않은 경주만 표시합니다. 관심 말 출전과 관심 경주가 겹치면 경주 하나로 합칩니다. 지난 경주도 관심 목록에 저장할 수 있지만 앞으로의 일정에는 표시하지 않습니다. 외부 메시지를 발송하는 알림 기능은 없습니다.
