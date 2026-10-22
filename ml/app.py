@@ -2,7 +2,7 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 import json,joblib
 from fastapi import FastAPI
-from pydantic import BaseModel,Field
+from pydantic import BaseModel,Field,model_validator
 ROOT=Path(__file__).resolve().parent
 @asynccontextmanager
 async def lifespan(app):
@@ -18,6 +18,11 @@ class HorseFeatures(BaseModel):
  distance:int=Field(ge=400,le=10000)
 class PredictRequest(BaseModel):
  horses:list[HorseFeatures]=Field(min_length=1,max_length=100)
+ @model_validator(mode='after')
+ def unique_horses(self):
+  if len({h.horseId for h in self.horses})!=len(self.horses):
+   raise ValueError('horseId must be unique within a race')
+  return self
 @app.get('/health')
 def health():return {'status':'ok','modelKind':'synthetic_experiment'}
 @app.post('/predict')

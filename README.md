@@ -52,14 +52,15 @@ npm run dev
 python3 -m venv .runtime/ml-venv
 .runtime/ml-venv/bin/pip install --cache-dir .runtime/pip -r ml/requirements.lock
 .runtime/ml-venv/bin/python ml/train.py
-.runtime/ml-venv/bin/python -m unittest discover -s ml -p test_model.py -v
+.runtime/ml-venv/bin/python -m unittest discover -s ml -p 'test_*.py' -v
 ```
 
 ## 검증
 ```bash
 ./scripts/gradle.sh build
 python3 -m unittest discover -s tests -v
-python3 tests/performance.py
+python3 tests/scale.py # 별도 DB에서 10,040두/50명/30초 부하
+python3 scripts/backup.py # 원본을 유지하며 별도 스키마 복원 확인
 cd frontend
 npm run build
 PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:e2e
@@ -75,10 +76,12 @@ API 테스트는 실행 중인 Spring/MySQL/FastAPI를 사용하며 테스트 �
 - 회원만 Spring을 통해 FastAPI 예측 요청. 합성 실험·면책 표시와 서비스 장애 안내.
 
 ## 문서
-[설계](ARCHITECTURE.md) · [ERD](ERD.md) · [API](API.md) · [요구사항 추적](REQUIREMENTS_TRACEABILITY.md) · [결정](DECISIONS.md) · [검증 결과](TEST_REPORT.md) · [진행](PROGRESS.md) · [학습용 호출 흐름](docs/LEARNING.md) · [디렉터리](docs/STRUCTURE.md) · [운영 준비](docs/DEPLOYMENT.md) · [원본 SRS](docs/SRS.docx).
+[설계](ARCHITECTURE.md) · [ERD](ERD.md) · [API](API.md) · [요구사항 추적](REQUIREMENTS_TRACEABILITY.md) · [결정](DECISIONS.md) · [검증 결과](TEST_REPORT.md) · [진행](PROGRESS.md) · [학습용 호출 흐름](docs/LEARNING.md) · [디렉터리](docs/STRUCTURE.md) · [운영 준비](docs/DEPLOYMENT.md) · [실제 데이터 평가](docs/ML_DATA.md) · [원본 SRS](docs/SRS.docx).
 
 OpenAPI는 실행 서버의 `/v3/api-docs`, Swagger UI는 `/swagger-ui/index.html`입니다. 프론트 프록시는 `/api`만 전달하므로 문서는 API 포트에서 확인합니다.
 
 예측 모델의 실제 경마 성능은 검증되지 않았습니다. [모델 보고서](ml/model-report.json)의 합성 실험 수치를 실제 정확도로 인용하지 마세요. 현재 검증 범위와 제한은 TEST_REPORT.md에 기록합니다.
 
 GitHub `main`에 소스가 게시되어 있습니다. [Actions 실행 목록](https://github.com/hsubin756-pixel/horse_racing_portal/actions)에서 원격 CI 결과를 확인할 수 있습니다. 이 환경에서는 GitHub API 접근 제한으로 원격 CI 성공 여부를 확인하지 못했습니다.
+
+2026-10-22 개선: JWT 필수 claims 검사, ML 응답/시간초과 처리, 검색 wildcard 문자 처리, DB 연결 사용 개선, 네트워크 오류 한국어 안내, 프록시 로그인 요청 제한을 추가했습니다. 확장 합성 DB의 동시 50명·30초 조회 시험은 14,017요청, 오류 0건, p95 246ms였습니다. 이는 장기 운영 성능 보장이 아닙니다. 백업의 별도 스키마 복원과 HTTPS 배포 구성을 준비했으며, 공개 배포에는 서버·도메인이 필요합니다.

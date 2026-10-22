@@ -4,7 +4,7 @@ RUN pip install --no-cache-dir --prefix=/install --no-index --find-links=/wheels
 FROM python:3.12-slim
 WORKDIR /app
 COPY --from=build /install /usr/local
-COPY app.py train.py ./
+COPY app.py train.py evaluate.py ./
 RUN python train.py && chmod -R a+rX /app
 USER 10001
 EXPOSE 8000

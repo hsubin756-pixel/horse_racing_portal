@@ -5,6 +5,7 @@ import joblib
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score,roc_auc_score,brier_score_loss
+from evaluate import metrics
 ROOT=Path(__file__).resolve().parent
 FEATURES=['priorMeanFinish','starts','distance']
 def dataset(seed=42):
@@ -27,6 +28,7 @@ def train():
  model.fit(x[train_mask],y[train_mask]);score=model.predict_proba(x[~train_mask])[:,1]
  report={'modelKind':'synthetic_experiment','seed':42,'features':FEATURES,'trainingRows':int(train_mask.sum()),'testRows':int((~train_mask).sum()),'split':'temporal: first 80 races train, last 20 test; independent fictional cohort',
  'accuracy':float(accuracy_score(y[~train_mask],score>=.5)),'majorityBaselineAccuracy':float((y[~train_mask]==0).mean()),'rocAuc':float(roc_auc_score(y[~train_mask],score)),'brierScore':float(brier_score_loss(y[~train_mask],score)),
+ 'rankingAndBaselineMetrics':metrics(y[~train_mask],score,rounds[~train_mask],float(y[train_mask].mean())),
  'limitations':'SYNTHETIC ONLY. No real-world predictive ability evaluated. Scores are uncalibrated model outputs, not guaranteed probabilities. Catalog cohort differs from training population.'}
  joblib.dump(model,ROOT/'model.joblib');(ROOT/'model-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
  print(json.dumps(report,ensure_ascii=False))

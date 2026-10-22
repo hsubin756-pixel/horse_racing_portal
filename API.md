@@ -17,3 +17,9 @@
 | POST /races/{id}/prediction | 예측 점수 내림차순, 모델 종류와 면책 문구 | 회원 |
 | GET /health | 상태 | 공개 |
 400 잘못된 입력, 401 인증 실패/만료/철회, 404 대상 없음, 409 중복, 503 ML 장애. OpenAPI: /v3/api-docs, Swagger UI: /swagger-ui/index.html.
+
+## 추가 실패 응답과 운영 프록시
+- `GET /api/health`는 실제 DB에 `SELECT 1`을 실행합니다. 연결 불가 시 한국어 메시지와 503을 반환합니다. ML 장애 여부는 이 endpoint에 포함하지 않습니다.
+- JWT는 서명/issuer/만료와 함께 `exp`, `iat`, UUID 형식 `jti`, 양수 회원 ID `sub`를 요구합니다. 누락·잘못된 claims는 401입니다.
+- 예측 서버의 timeout, 응답 항목 누락/null, 알 수 없는 말, 중복 말, 범위 밖 점수는 503으로 처리합니다.
+- Nginx의 로그인/가입 요청 제한 초과는 429와 한국어 JSON 메시지를 반환합니다. 개발용 8080 포트 직접 호출에는 프록시 제한이 적용되지 않습니다.

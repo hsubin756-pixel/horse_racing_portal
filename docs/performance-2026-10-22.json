@@ -1,0 +1,26 @@
+{
+  "concurrency": 50,
+  "durationSeconds": 30.107695783000963,
+  "requests": 14017,
+  "errors": 0,
+  "requestsPerSecond": 465.56203108422886,
+  "medianMs": 96.64184099892736,
+  "p95Ms": 246.15638600153034,
+  "p99Ms": 341.3627429981716,
+  "maxMs": 666.2539680000918,
+  "scope": "Closed-loop API reads, no think time. Fixture scale is reported separately; no public-network or browser SLA.",
+  "fixtureCounts": {
+    "horse": 10040,
+    "race": 1008,
+    "entry": 20096
+  },
+  "environment": {
+    "os": "Linux-6.18.55-x86_64-with-glibc2.41",
+    "cpuCountReported": 5,
+    "mysql": "8.4",
+    "java": "21",
+    "springBoot": "3.5.7",
+    "date": "2026-10-22",
+    "note": "Shared Codex cloud host; CPU/memory not exclusively reserved; Chromium suite ran during part of measurement."
+  }
+}

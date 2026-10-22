@@ -9,4 +9,6 @@ interface EntryRepository extends JpaRepository<Entry,Long> {
  List<Entry> findByRaceIdOrderByNumberAsc(Long id);
  @Query("select e from Entry e join fetch e.race where e.horse.id = :id and e.race.raceDate < :date and e.finishPosition is not null")
  List<Entry> past(Long id, LocalDate date);
+ @Query("select e from Entry e join fetch e.horse where e.horse.id in :ids and e.race.raceDate < :date and e.finishPosition is not null")
+ List<Entry> pastForHorses(java.util.Set<Long> ids, LocalDate date);
 }

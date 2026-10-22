@@ -33,3 +33,9 @@ test('mobile pages fit viewport and pedigree can scroll',async({page})=>{
  }
  await page.goto('/');await page.screenshot({path:'../.runtime/home-mobile.png',fullPage:true});
 });
+
+test('network failures display a Korean recovery message',async({page})=>{
+ await page.route('**/api/horses?**',route=>route.abort('failed'));
+ await page.goto('/horses');
+ await expect(page.getByRole('alert')).toContainText('네트워크 상태를 확인');
+});

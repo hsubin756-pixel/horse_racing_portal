@@ -3,6 +3,9 @@ import java.time.LocalDate;
 import org.springframework.data.jpa.repository.*;
 import org.springframework.data.domain.*;
 interface RaceRepository extends JpaRepository<Race,Long> {
- @Query("select r from Race r where lower(r.name) like lower(concat('%',:q,'%')) and (:date is null or r.raceDate = :date)")
- Page<Race> search(String q, LocalDate date, Pageable pageable);
+ Page<Race> findByNameContainingIgnoreCase(String q, Pageable pageable);
+ Page<Race> findByNameContainingIgnoreCaseAndRaceDate(String q, LocalDate date, Pageable pageable);
+ default Page<Race> search(String q,LocalDate date,Pageable pageable) {
+  return date==null ? findByNameContainingIgnoreCase(q,pageable) : findByNameContainingIgnoreCaseAndRaceDate(q,date,pageable);
+ }
 }

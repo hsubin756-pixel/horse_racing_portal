@@ -2,7 +2,9 @@ import {useEffect, useState} from 'react';
 let token: string | null = null;
 export function setToken(value: string | null) { token=value; }
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
- const response = await fetch('/api'+path, {...options, headers: {'Content-Type':'application/json', ...(token ? {Authorization: 'Bearer '+token}: {}), ...options.headers}});
+ let response: Response;
+ try { response = await fetch('/api'+path, {...options, signal: options.signal ?? AbortSignal.timeout(10000), headers: {'Content-Type':'application/json', ...(token ? {Authorization: 'Bearer '+token}: {}), ...options.headers}}); }
+ catch { throw new Error('서버에 연결할 수 없습니다. 네트워크 상태를 확인하고 다시 시도하세요.'); }
  if(response.status===401 && token) { window.dispatchEvent(new Event('auth-expired')); }
  if (!response.ok) { const error = await response.json().catch(()=>({message:'서버 연결을 확인하세요.'})); throw new Error(error.message || '요청을 처리할 수 없습니다.'); }
  const text=await response.text(); return text ? JSON.parse(text) as T : undefined as T;

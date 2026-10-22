@@ -10,5 +10,7 @@ class ModelTests(unittest.TestCase):
    self.assertEqual(c.get('/health').json()['modelKind'],'synthetic_experiment')
    self.assertEqual(c.post('/predict',json={'horses':[]}).status_code,422)
    self.assertEqual(c.post('/predict',json={'horses':[{'horseId':1,'priorMeanFinish':0,'starts':-1,'distance':2}]}).status_code,422)
+   duplicate={'horseId':1,'priorMeanFinish':5,'starts':7,'distance':1600}
+   self.assertEqual(c.post('/predict',json={'horses':[duplicate,duplicate]}).status_code,422)
    d=c.post('/predict',json={'horses':[{'horseId':1,'priorMeanFinish':5,'starts':7,'distance':1600}]}).json();self.assertTrue(0<=d['scores'][0]['score']<=1)
 if __name__=='__main__':unittest.main(verbosity=2)

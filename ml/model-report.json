@@ -13,5 +13,19 @@
   "majorityBaselineAccuracy": 0.875,
   "rocAuc": 0.7364682539682539,
   "brierScore": 0.1011240709006087,
+  "rankingAndBaselineMetrics": {
+    "accuracy": 0.875,
+    "rocAuc": 0.7364682539682539,
+    "averagePrecision": 0.2742747391917738,
+    "brierScore": 0.1011240709006087,
+    "trainingPrevalenceBaselineBrier": 0.109375,
+    "testPositiveRate": 0.125,
+    "majorityBaselineAccuracy": 0.875,
+    "top3Recall": 0.31666666666666665,
+    "top3RecallBootstrap95": [
+      0.21666666666666665,
+      0.4333333333333333
+    ]
+  },
   "limitations": "SYNTHETIC ONLY. No real-world predictive ability evaluated. Scores are uncalibrated model outputs, not guaranteed probabilities. Catalog cohort differs from training population."
 }

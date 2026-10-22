@@ -8,6 +8,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.http.HttpMethod;
 @Configuration
 class SecurityConfig {
+ @Bean org.springframework.boot.web.servlet.FilterRegistrationBean<JwtFilter> jwtRegistration(JwtFilter filter) {
+  var registration=new org.springframework.boot.web.servlet.FilterRegistrationBean<>(filter);
+  registration.setEnabled(false);return registration;
+ }
  @Bean BCryptPasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(12); }
  @Bean SecurityFilterChain chain(HttpSecurity http,JwtFilter jwt) throws Exception {
   return http.csrf(c -> c.disable()).sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

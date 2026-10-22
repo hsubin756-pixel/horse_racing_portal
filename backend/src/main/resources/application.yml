@@ -1,5 +1,8 @@
 spring:
   datasource:
+    hikari:
+      connection-timeout: 3000
+      validation-timeout: 1000
     url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/keiba?useUnicode=true&characterEncoding=UTF-8&connectionTimeZone=UTC}
     username: ${DB_USER:keiba}
     password: ${DB_PASSWORD}

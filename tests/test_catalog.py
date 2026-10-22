@@ -23,6 +23,13 @@ class CatalogTests(unittest.TestCase):
   _,hist=request('/horses/22/history');self.assertEqual(len(hist),7);self.assertEqual(hist[0]['raceId'],7)
   dates=[e['raceDate'] for e in hist];self.assertEqual(dates,sorted(dates,reverse=True));self.assertIsNotNone(hist[-1]['timeSeconds'])
   self.assertEqual(request('/horses/9999')[0],404)
+ def test_literal_wildcards_and_invalid_queries(self):
+  for resource in ('horses','races'):
+   for query in ('%25','_','%27%20OR%201%3D1'):
+    status,data=request('/'+resource+'?q='+query)
+    self.assertEqual(status,200);self.assertEqual(data['totalElements'],0)
+  self.assertEqual(request('/horses?q='+'a'*101)[0],400)
+  self.assertEqual(request('/races?page=-1')[0],400)
  def test_races(self):
   _,p=request('/races?date=2025-01-15');self.assertEqual(p['totalElements'],1)
   _,p=request('/races?q=not-existing');self.assertEqual(p['totalElements'],0)
