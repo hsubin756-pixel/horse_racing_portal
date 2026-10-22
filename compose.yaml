@@ -1,0 +1,33 @@
+name: keiba
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: keiba
+      MYSQL_USER: keiba
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Run scripts/init-env.py}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Run scripts/init-env.py}
+    ports: ["127.0.0.1:3306:3306"]
+    volumes: ["mysql_data:/var/lib/mysql"]
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost --silent"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+  backend:
+    build: ./backend
+    environment:
+      DB_URL: jdbc:mysql://db:3306/keiba?connectionTimeZone=UTC
+      DB_USER: keiba
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Run scripts/init-env.py}
+      ML_URL: http://ml:8000
+    ports: ["127.0.0.1:8080:8080"]
+    depends_on:
+      db: {condition: service_healthy}
+  frontend:
+    build: ./frontend
+    ports: ["127.0.0.1:5173:80"]
+    depends_on: [backend]
+volumes:
+  mysql_data:

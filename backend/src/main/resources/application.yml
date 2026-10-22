@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/keiba?useUnicode=true&characterEncoding=UTF-8&connectionTimeZone=UTC}
+    username: ${DB_USER:keiba}
+    password: ${DB_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+server:
+  error:
+    include-message: never
+app:
+  jwt-secret: ${JWT_SECRET}
+  jwt-ttl-seconds: ${JWT_TTL_SECONDS:1800}
+  ml-url: ${ML_URL:http://127.0.0.1:8000}

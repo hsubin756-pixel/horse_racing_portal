@@ -1,0 +1,9 @@
+**/node_modules/
+**/dist/
+**/build/
+**/.gradle/
+**/__pycache__/
+**/.venv/
+.env
+.runtime/
+*.log
