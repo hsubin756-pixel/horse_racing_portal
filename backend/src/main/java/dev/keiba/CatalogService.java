@@ -33,4 +33,14 @@ class CatalogService {
   return new PageView<>(p.getContent().stream().map(this::view).toList(),p.getNumber(),p.getTotalPages(),p.getTotalElements());
  }
  RaceDetail race(Long id) { return new RaceDetail(view(requireRace(id)),entries.findByRaceIdOrderByNumberAsc(id).stream().map(this::view).toList()); }
+
+ record PedigreeNode(Long id,String name,PedigreeNode sire,PedigreeNode dam) {}
+ PedigreeNode pedigree(Long id) { return ancestors(requireHorse(id),3,new HashSet<>()); }
+ private PedigreeNode ancestors(Horse horse,int depth,Set<Long> path) {
+  if(horse==null) return null;
+  Horse h=org.hibernate.Hibernate.unproxy(horse,Horse.class);
+  if(path.contains(h.id)) return null;
+  Set<Long> next=new HashSet<>(path);next.add(h.id);
+  return new PedigreeNode(h.id,h.name,depth==0?null:ancestors(h.sire,depth-1,next),depth==0?null:ancestors(h.dam,depth-1,next));
+ }
 }
