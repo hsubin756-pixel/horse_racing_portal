@@ -20,7 +20,7 @@ class CatalogTests(unittest.TestCase):
   self.assertEqual(request('/horses?page=-1')[0],400);self.assertEqual(request('/horses?sort=password')[0],400)
  def test_details_and_history(self):
   s,h=request('/horses/22');self.assertEqual(s,200);self.assertIsNotNone(h['sire']['id']);self.assertTrue(h['sire']['name']);self.assertTrue(h['trainer'])
-  _,hist=request('/horses/22/history');self.assertEqual(len(hist),8);self.assertEqual(hist[0]['raceId'],8)
+  _,hist=request('/horses/22/history');self.assertEqual(len(hist),7);self.assertEqual(hist[0]['raceId'],7)
   dates=[e['raceDate'] for e in hist];self.assertEqual(dates,sorted(dates,reverse=True));self.assertIsNotNone(hist[-1]['timeSeconds'])
   self.assertEqual(request('/horses/9999')[0],404)
  def test_races(self):

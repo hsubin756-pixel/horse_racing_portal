@@ -26,7 +26,7 @@ class CatalogService {
   return new PageView<>(p.getContent().stream().map(this::view).toList(),p.getNumber(),p.getTotalPages(),p.getTotalElements());
  }
  HorseView horse(Long id) { return view(requireHorse(id)); }
- List<EntryView> history(Long id) { requireHorse(id); return entries.findByHorseIdOrderByRaceRaceDateDesc(id).stream().map(this::view).toList(); }
+ List<EntryView> history(Long id) { requireHorse(id); return entries.findByHorseIdOrderByRaceRaceDateDesc(id).stream().map(this::view).filter(e->e.finishPosition()!=null && !e.raceDate().isAfter(LocalDate.now(java.time.ZoneOffset.UTC))).toList(); }
  PageView<RaceView> races(String q,LocalDate date,int page) {
   if(page<0 || page>100000 || q.length()>150) throw new ApiException(400,"검색 조건을 확인하세요.");
   var p=races.search(q,date,PageRequest.of(page,20,Sort.by(Sort.Direction.DESC,"raceDate").and(Sort.by("id"))));

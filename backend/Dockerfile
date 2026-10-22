@@ -1,11 +1,7 @@
-FROM gradle:8.14.3-jdk21 AS build
-WORKDIR /app
-COPY --chown=gradle:gradle . .
-USER gradle
-RUN gradle --no-daemon --max-workers=2 bootJar
+# Build and test with scripts/build.sh before assembling this runtime image.
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /app/build/libs/keiba-portal-0.1.0.jar app.jar
+COPY --chown=10001:10001 build/libs/keiba-portal-0.1.0.jar app.jar
 USER 10001
 EXPOSE 8080
 ENTRYPOINT ["java","-XX:MaxRAMPercentage=70","-jar","app.jar"]

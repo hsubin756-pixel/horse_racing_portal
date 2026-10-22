@@ -7,3 +7,4 @@
 - 가상 과거 전적에서 경주일 이전의 평균 착순/출전 수만 사용해 scikit-learn 실험 모델 학습. 실제 말에 대한 정확도 검증은 불가능합니다.
 - JWT 만료 30분, BCrypt 해시. JWT 키는 환경변수 필수. 로그아웃 철회는 DB에 저장됩니다. 배포 시 만료 철회 레코드 정기 청소를 권장합니다.
 - 커뮤니티, 실시간 오즈, 예측 정확도 보장은 Won't로 제외합니다.
+- Docker BuildKit 내부 네트워크에서 의존성 접근이 실패하여, scripts/build.sh가 정상 접근이 검증된 호스트/일반 Gradle 컨테이너에서 빌드·테스트·의존성 다운로드를 수행합니다. Dockerfile은 결과물을 runtime 이미지로 조립합니다. ML wheel은 신뢰되는 TLS 다운로드 후 SHA-256을 고정하고 이미지에서 --require-hashes/--no-index로 설치합니다. TLS 검증을 우회하지 않습니다. scripts/up.sh가 전체 흐름을 자동 실행합니다.

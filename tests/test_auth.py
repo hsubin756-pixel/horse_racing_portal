@@ -11,6 +11,7 @@ class AuthTests(unittest.TestCase):
  def test_registration_login_and_validation(self):
   b,t=self.register('a');self.assertEqual(request('/auth/register','POST',b)[0],409)
   self.assertEqual(request('/auth/login','POST',dict(b,password='wrong'))[0],401)
+  self.assertEqual(request('/auth/login','POST',dict(b,password='가'*30))[0],401)
   self.assertEqual(request('/auth/register','POST',dict(b,email='invalid'))[0],400)
   self.assertEqual(request('/auth/register','POST',dict(b,email='new@example.test',password='가'*30))[0],400)
   self.assertEqual(request('/auth/register','POST',dict(b,email='new@example.test',nickname='   '))[0],400)

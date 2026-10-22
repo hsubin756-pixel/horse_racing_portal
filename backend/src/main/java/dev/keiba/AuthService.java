@@ -18,6 +18,7 @@ class AuthService {
   members.saveAndFlush(new Member(email,encoder.encode(input.password()),nickname));
  }
  @Transactional(readOnly=true) LoginResult login(AuthController.Login input) {
+  if(input.password().getBytes(StandardCharsets.UTF_8).length>72) throw new ApiException(401,"이메일 또는 비밀번호가 올바르지 않습니다.");
   var m=members.findByEmail(input.email().strip().toLowerCase(Locale.ROOT));
   boolean ok=encoder.matches(input.password(),m.map(x->x.passwordHash).orElse(dummyHash));
   if(!ok || m.isEmpty()) throw new ApiException(401,"이메일 또는 비밀번호가 올바르지 않습니다.");

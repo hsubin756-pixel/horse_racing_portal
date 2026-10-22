@@ -1,0 +1,81 @@
+# KEIBA FIELD — 경마 데이터 포털
+
+가상의 일본풍 경주마와 경주 기록을 탐색하는 풀스택 포트폴리오입니다. React 화면에서 Spring Boot REST API를 호출하여 **실제 MySQL**의 말·경주·전적·혈통·회원·즐겨찾기를 조회하고 변경합니다. 별도 FastAPI의 합성 데이터 실험 모델을 회원 전용 예측 기능으로 연결합니다.
+
+실제 netkeiba 데이터/로고를 사용하지 않습니다. 모든 말 40두, 경주 8개, 출전 96건은 가상 데이터입니다. 실시간 오즈, 커뮤니티, 예측 정확도 보장은 범위에서 제외합니다.
+
+![실제 통합 서비스 데스크톱 화면](docs/images/home-desktop.png)
+
+## 기술
+React 19 · Vite 7.3.7 · TypeScript · React Router / Java 21 · Spring Boot 3.5 · Security · JWT · BCrypt · JPA / MySQL 8.4 · Flyway / Python 3.12 · FastAPI · scikit-learn / Gradle 8.14.3 · Docker Compose · JUnit · Python unittest · Playwright.
+
+## 실행
+필수: Linux, Docker 엔진과 Compose v2, Python 3.12 및 venv, Node 22 이상. Java/Gradle은 공식 빌드 컨테이너로도 사용할 수 있습니다.
+
+```bash
+cd /workspace/horse_racing_portal
+./scripts/up.sh
+```
+
+일반 PC에서는 체크아웃 디렉터리로 이동해서 동일 명령을 실행합니다. 이 스크립트는 기존 `.env`를 보존하며, 없으면 개발용 비밀값을 무작위로 생성합니다. `.env`는 0600 권한이고 Git에서 제외됩니다. 이미지 빌드, MySQL/Flyway 샘플 적재, 서비스 시작 및 실제 API 준비 확인까지 실행합니다. 처음 빌드는 의존성 다운로드가 필요합니다. scripts/build.sh가 백엔드 JUnit/ML 테스트와 프론트 빌드를 실행한 뒤 Docker runtime 이미지를 조립합니다.
+
+웹 포트 5173, API 8080, ML 8000, DB 3306은 모두 호스트 loopback에만 바인딩됩니다. 이 클라우드 온보딩 UI에서는 로컬 웹 미리보기를 제공하지 않습니다. 브라우저 접근이 가능한 별도 개발 머신에서는 5173 포트로 접속하세요. 신규 회원은 회원가입 화면에서 직접 생성합니다. 기본 관리자/고정 비밀번호 계정은 없습니다.
+
+```bash
+docker compose ps
+docker compose logs --tail=80 backend
+docker compose stop           # 데이터 볼륨 보존
+docker compose up -d          # 이미 빌드된 서비스 재시작
+python3 scripts/wait-ready.py # MySQL 기반 조회·API·ML·웹 프록시 확인
+```
+
+`docker compose down -v`는 DB 데이터를 삭제하므로 사용하지 마세요. 환경의 live 프로세스는 스냅샷에 보존된다고 가정하지 않습니다. 새 task에서는 기존 체크아웃을 사용하고 `docker compose up -d` 후 준비 확인을 실행하세요. 별도 Git worktree는 필요하지 않습니다.
+
+## 개발
+```bash
+python3 scripts/init-env.py
+python3 scripts/prepare-build.py
+mkdir -p .runtime/docker
+./scripts/build.sh
+DOCKER_CONFIG="$PWD/.runtime/docker" docker compose up -d db ml
+./scripts/gradle.sh build
+python3 scripts/backend-local.py
+cd frontend
+npm ci --cache ../.runtime/npm
+npm run dev
+```
+이미 전체 Compose가 실행 중이면 backend/frontend 컨테이너를 먼저 중지해 포트 충돌을 해소하세요. 로컬 백엔드는 `python3 scripts/backend-local.py stop`으로 종료합니다. Vite 프록시가 8080 API를 전달합니다. ML 모델은 컨테이너에서 학습되므로 호스트 Python 학습은 필수가 아닙니다.
+
+```bash
+# 별도로 호스트에서 ML 개발/테스트
+python3 -m venv .runtime/ml-venv
+.runtime/ml-venv/bin/pip install --cache-dir .runtime/pip -r ml/requirements.lock
+.runtime/ml-venv/bin/python ml/train.py
+.runtime/ml-venv/bin/python -m unittest discover -s ml -p test_model.py -v
+```
+
+## 검증
+```bash
+./scripts/gradle.sh build
+python3 -m unittest discover -s tests -v
+python3 tests/performance.py
+cd frontend
+npm run build
+PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:e2e
+```
+API 테스트는 실행 중인 Spring/MySQL/FastAPI를 사용하며 테스트 회원을 생성합니다. 테스트 전용/개발 DB에서 실행하세요. Playwright는 시스템 Chromium을 사용하거나 `npx playwright install chromium` 후 실행할 수 있습니다. 전자는 클라우드 다운로드 정책 변경 없이 사용할 수 있습니다. ML 장애 검증은 `docker compose stop ml`, `python3 tests/check_outage.py`, `docker compose start ml`, 준비 확인 순서입니다.
+
+## 화면 및 도메인
+- 부분 이름 검색, 20건 페이지, 성별/생년 정렬 → 상세 → 최신 완료 전적 → 경주 결과로 이동.
+- 경주명/개최일 AND 검색 → 마번·기수·기록·착순, 말 상세로 이동.
+- 회원가입/로그인 → 본인 즐겨찾기 추가·목록·삭제, 중복 거부.
+- JWT는 메모리에 보관하고 30분에 만료합니다. 새로고침 시 다시 로그인합니다. 서버 DB에서 로그아웃 토큰을 철회합니다.
+- 양쪽 부모의 3대 혈통 트리, 누락 표시 및 제한된 재귀.
+- 회원만 Spring을 통해 FastAPI 예측 요청. 합성 실험·면책 표시와 서비스 장애 안내.
+
+## 문서
+[설계](ARCHITECTURE.md) · [ERD](ERD.md) · [API](API.md) · [요구사항 추적](REQUIREMENTS_TRACEABILITY.md) · [결정](DECISIONS.md) · [검증 결과](TEST_REPORT.md) · [진행](PROGRESS.md) · [학습용 호출 흐름](docs/LEARNING.md) · [디렉터리](docs/STRUCTURE.md) · [운영 준비](docs/DEPLOYMENT.md) · [원본 SRS](docs/SRS.docx).
+
+OpenAPI는 실행 서버의 `/v3/api-docs`, Swagger UI는 `/swagger-ui/index.html`입니다. 프론트 프록시는 `/api`만 전달하므로 문서는 API 포트에서 확인합니다.
+
+예측 모델의 실제 경마 성능은 검증되지 않았습니다. [모델 보고서](ml/model-report.json)의 합성 실험 수치를 실제 정확도로 인용하지 마세요. 현재 검증 범위와 제한은 TEST_REPORT.md에 기록합니다.

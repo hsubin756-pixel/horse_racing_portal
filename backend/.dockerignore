@@ -1,2 +1,6 @@
-build
 .gradle
+src
+build/classes
+build/tmp
+build/reports
+build/test-results

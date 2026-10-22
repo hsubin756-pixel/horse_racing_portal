@@ -11,3 +11,7 @@
 **/*.tsbuildinfo
 
 **/*.joblib
+
+ml/.wheels/
+frontend/playwright-report/
+frontend/test-results/
