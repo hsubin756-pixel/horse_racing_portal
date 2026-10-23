@@ -167,11 +167,11 @@ def ancestor_statements(var, name, sex, source):
             f'SET {var}=(SELECT id FROM horse WHERE ancestor_key={key} LIMIT 1);']
 
 
-def kra_horse_statements(var, kra, name, sex, source):
+def kra_horse_statements(var, kra, name, sex, source, track=False):
     """제공기관 번호로 말을 찾고, 없으면 같은 이름의 이름 전용 조상 행을 승격하거나 새로 만듭니다."""
     n, key = literal(kra_num(kra)), literal('KRA:' + name.upper())
     return [f'SET {var}=(SELECT id FROM horse WHERE kra_id IS NOT NULL AND CAST(kra_id AS UNSIGNED)={n} LIMIT 1);',
-            f'SET {var}=COALESCE({var},(SELECT id FROM horse WHERE ancestor_key={key} LIMIT 1));',
+            f'SET {var}=COALESCE({var},(SELECT id FROM horse WHERE ancestor_key={key} LIMIT 1));'] + ([f'SET @created=({var} IS NULL);'] if track else []) + [
             insert('horse', {'name': name, 'sex': sex, 'color': '미제공', 'trainer': '미제공', 'kra_id': kra, 'source': source}, f'{var} IS NULL'),
             f'SET {var}=COALESCE({var},(SELECT id FROM horse WHERE kra_id={literal(kra)} LIMIT 1));',
             f'UPDATE horse SET kra_id={literal(kra)},ancestor_key=NULL WHERE id={var} AND kra_id IS NULL;']
@@ -181,8 +181,7 @@ def sql_horses(plans, retrieved):
     statements = []
     for plan in plans:
         self_var = horse_var('')
-        statements += kra_horse_statements(self_var, plan['kra'], plan['name'], plan['sex'], SOURCES['horses'])
-        statements.append(f'SET @created=(SELECT source<>{literal(SOURCES["horses"])} FROM horse WHERE id={self_var});')
+        statements += kra_horse_statements(self_var, plan['kra'], plan['name'], plan['sex'], SOURCES['horses'], track=True)
         if plan['trainer_no']:
             statements += [insert('person', {'kind': 'TRAINER', 'name': plan['trainer_name'] or '조교사', 'source': SOURCES['horses'], 'kra_id': plan['trainer_no']},
                                   f"NOT EXISTS(SELECT 1 FROM person WHERE kind='TRAINER' AND kra_id IS NOT NULL AND CAST(kra_id AS UNSIGNED)={literal(kra_num(plan['trainer_no']))})"),

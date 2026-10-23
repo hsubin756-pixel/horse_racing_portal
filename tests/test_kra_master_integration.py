@@ -24,15 +24,21 @@ class MasterIntegrationTests(unittest.TestCase):
         self.addCleanup(self.cleanup)
 
     def cleanup(self):
-        keys = ','.join(importer.literal('KRA:' + n.upper()) for n in self.names)
-        ids = f"SELECT id FROM horse WHERE kra_id LIKE '{self.prefix}%' OR ancestor_key IN ({keys})"
-        mysql(f'UPDATE horse SET sire_id=NULL,dam_id=NULL WHERE sire_id IN ({ids}) OR dam_id IN ({ids});'
-              f"DELETE FROM kra_master_import WHERE subject LIKE '{self.prefix}%' OR subject LIKE '1:2099%';"
+        purge(self.prefix)
+
+
+def purge(prefix):
+    """Remove every fixture row created with this prefix (horses, name-only ancestors, people, planned races)."""
+    # MySQL forbids updating a table that the same statement selects from, hence the derived table.
+    horses = f"kra_id LIKE '{prefix}%' OR ancestor_key LIKE 'KRA:가상 조상 {prefix}%'"
+    ids = f'SELECT id FROM (SELECT id FROM horse WHERE {horses}) fixture'
+    mysql(f'UPDATE horse SET sire_id=NULL WHERE sire_id IN ({ids});UPDATE horse SET dam_id=NULL WHERE dam_id IN ({ids});'
+          f"DELETE FROM kra_master_import WHERE subject LIKE '{prefix}%' OR subject LIKE '1:2099%';"
               f'DELETE FROM sectional_marker WHERE entry_id IN (SELECT id FROM entry WHERE horse_id IN ({ids}));'
               f'DELETE FROM sectional WHERE entry_id IN (SELECT id FROM entry WHERE horse_id IN ({ids}));'
               f'DELETE FROM entry WHERE horse_id IN ({ids});'
-              f"DELETE FROM horse WHERE kra_id LIKE '{self.prefix}%' OR ancestor_key IN ({keys});"
-              f"DELETE FROM person WHERE kra_id LIKE '{self.prefix}%';"
+              f'DELETE FROM horse WHERE {horses};'
+              f"DELETE FROM person WHERE kra_id LIKE '{prefix}%';"
               f"DELETE FROM race_favorite WHERE race_id IN (SELECT id FROM race WHERE kra_id LIKE '1:2099%');"
               f"DELETE FROM kra_race_import WHERE race_id IN (SELECT id FROM race WHERE kra_id LIKE '1:2099%');"
               f"DELETE FROM sectional_marker WHERE entry_id IN (SELECT e.id FROM entry e JOIN race r ON r.id=e.race_id WHERE r.kra_id LIKE '1:2099%');"
@@ -122,4 +128,9 @@ class MasterIntegrationTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    if sys.argv[1:] == ['--purge-leftovers']:
+        # Fixture prefixes are '96' + five digits; real KRA horse numbers start with '00', so this touches fixtures only.
+        purge('96')
+        print('남아 있던 테스트 가상 자료를 정리했습니다.')
+    else:
+        unittest.main()
