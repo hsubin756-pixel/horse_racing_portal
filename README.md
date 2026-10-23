@@ -67,6 +67,17 @@ PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:e2e
 ```
 API 테스트는 실행 중인 Spring/MySQL/FastAPI를 사용하며 테스트 회원을 생성합니다. 테스트 전용/개발 DB에서 실행하세요. Playwright는 시스템 Chromium을 사용하거나 `npx playwright install chromium` 후 실행할 수 있습니다. 전자는 클라우드 다운로드 정책 변경 없이 사용할 수 있습니다. ML 장애 검증은 `docker compose stop ml`, `python3 tests/check_outage.py`, `docker compose start ml`, 준비 확인 순서입니다.
 
+## 한국마사회 API 개발계정 승인 후
+
+[인증키 설정·연결 확인 안내](docs/KRA_API.md)를 참고하세요. WSL에서 아래 명령을 실행하면 키를 숨김 입력으로 저장하고 문서 예제 경주의 원본 응답을 내려받습니다. Docker 재빌드와 추가 Python 패키지는 필요하지 않습니다.
+
+```bash
+python3 scripts/kra.py configure
+python3 scripts/kra.py check --meet 1 --date 20220220 --race 1
+```
+
+키와 다운로드 자료는 Git에서 제외된 `.runtime/kra/`에만 저장합니다. 실제 API 연결은 사용자 PC의 키와 네트워크로 확인해야 합니다. 현재는 원본 수집 단계이며 사이트 DB 반영은 포함하지 않습니다. 사이트에는 기존 합성 자료가 표시됩니다.
+
 ## 화면 및 도메인
 - 부분 이름 검색, 20건 페이지, 성별/생년 정렬 → 상세 → 최신 완료 전적 → 경주 결과로 이동.
 - 경주명/개최일 AND 검색 → 마번·기수·인기·단승 배당·기록·착순, 말 상세로 이동. 인기순/배당순 정렬과 자료 기준 시각을 제공하며 미제공 값은 구분합니다.
