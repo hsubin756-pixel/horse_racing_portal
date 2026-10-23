@@ -116,3 +116,19 @@ python3 -m unittest discover -s tests -p 'test_kra_integration.py' -v
 ```
 
 인증키 인코딩·저장 권한, 오류 비밀정보 비노출, XML 응답, 페이지 누락/중복/변경, 원본 식별번호 보존을 가상 응답으로 검증합니다. 실제 사용자 인증키 또는 외부 API가 필요하지 않습니다. 실 API 승인·응답 검증과 별개입니다.
+
+## 승인된 다른 API 탐색 (kra_catalog.py)
+
+사용자 계정에 승인된 51개 API의 명세는 [KRA_API_CATALOG.md](KRA_API_CATALOG.md)에 정리했습니다. `scripts/kra_catalog.py`는 그중 사이트와 관련된 36개를 같은 인증키로 호출해 원본(XML)과 `rows.json`, `summary.json`을 `.runtime/kra/<api>-…/`에 보존하고, 첫 행의 항목과 값을 요약해 출력합니다. DB는 변경하지 않습니다.
+
+```bash
+python3 scripts/kra_catalog.py list                      # API 이름과 조건
+python3 scripts/kra_catalog.py probe horse-list meet=1 --rows 5
+python3 scripts/kra_catalog.py probe horse-info hr_no=039092
+python3 scripts/kra_catalog.py fetch jockey-info meet=1 --pages 3
+```
+
+- 조건은 `이름=값` 형식이며 각 API가 받는 조건만 허용합니다. 필수 조건이 빠지면 호출 전에 중단합니다.
+- `probe`는 1회, `fetch`는 최대 `--pages`회(기본 10, 상한 50) 호출하며 페이지 사이 0.25초 대기합니다. 개발계정의 API별 트래픽 한도를 확인하세요.
+- `birthday`가 `********`로 오면 마스킹으로 표시하며 추정하지 않습니다. 인증키는 출력·저장 파일에 포함하지 않습니다.
+- 검증: `python3 -m unittest discover -s tests -p 'test_kra_catalog.py' -v` (오프라인 6개).
