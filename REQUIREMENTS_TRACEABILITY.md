@@ -69,3 +69,21 @@ Must 14개는 실제 구현 및 위 검증으로 확인했습니다. Should 9개
 | 넷케이바와 기능 차이 확인 | docs/NETKEIBA_COMPARISON.md | 현재 포털 구현은 코드/실행으로 확인. 넷케이바 최신 화면은 프록시 403으로 미확인 |
 
 가상 데이터 기반 기능 검증입니다. 실시간 인기·배당/조합별 환급·상세 출마표·뉴스/영상/커뮤니티·외부 알림은 이번 추가 기능에 포함되지 않습니다.
+
+
+## 후속 사용자 요청 — 제안 8개 전체와 구간 기록
+아래가 2026-10-23 확장 후의 상태이며 앞 절의 미구현 기록은 당시 시점의 범위입니다.
+
+| 추가 기능 | 구현 근거 | 검증 |
+|---|---|---|
+| 출마표 상세·경주/출전 상태 | V6, Race/Entry, CatalogService, RaceFacts/EntryTable | 기존 API 회귀 + test_extensions, 브라우저 출마표 |
+| 관리자 입력·CSV·미리보기·이력 | CatalogAdmin, admin.tsx, scripts/admin.py | 권한/회수·CSV·원자성·동시 수정 API, CSV 단위, 관리자 브라우저 |
+| 조합별 예상/확정/환불 | payout, V8, CatalogAdmin.validateRace, Payouts | 착순/조합·NULL DB 제약·삭제 권한·브라우저 금액 |
+| 전체 개최 캘린더 | RacingInsights.calendar, Calendar | 월/경마장 API·브라우저 이동·모바일 |
+| 개인 메모·태그 | personal_note, MemberTools, Notes | 소유권·검색·정정 충돌·삭제 API, 메모 브라우저 |
+| 기수·조교사 프로필/순위 | person/FK, PeopleController, People/PersonProfile | ID·조건 집계 API·프로필 브라우저 |
+| 성적 추이 | HorseRunningStyle의 경주 선택 막대 | 날짜/착순 선택과 구간 표 전환 브라우저 |
+| 사이트 내 알림 | site_notification, MemberTools, Inbox | 7일 일정 생성·중복·읽음 소유권·취소 상태, 브라우저 알림함 |
+| 구간 통과/시간·주행 스타일 | sectional, RacingInsights, RunDetail | 위치 분류 경계 단위·실제 시간 차 API·누락·미확정·표본 수·그래프/표 브라우저 |
+
+기본 합성 데이터와 관리자 등록 기능의 검증입니다. 각질은 공식 판정이 아닌 명시적인 초반 위치 규칙입니다. 실제 데이터 공급/갱신, 외부 알림 발송, 뉴스/영상/커뮤니티, 수득상금·과거 담당 조교사 이력은 여전히 별도 범위입니다.

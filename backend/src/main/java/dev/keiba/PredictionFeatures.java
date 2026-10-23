@@ -10,7 +10,8 @@ class PredictionFeatures {
  record Input(Map<Long,String> names,List<PredictService.Features> horses) {}
  @Transactional(readOnly=true) Input forRace(Long raceId) {
   Race race=catalog.requireRace(raceId);
-  var starters=entries.findByRaceIdOrderByNumberAsc(raceId);
+  if("CANCELLED".equals(race.status))throw new ApiException(400,"취소된 경주는 예측할 수 없습니다.");
+  var starters=entries.findByRaceIdOrderByNumberAsc(raceId).stream().filter(e->!Set.of("SCRATCHED","DISQUALIFIED","DNF").contains(e.status)).toList();
   if(starters.isEmpty()) throw new ApiException(400,"출주마가 없는 경주는 예측할 수 없습니다.");
   var names=new HashMap<Long,String>();
   for(var entry:starters) {

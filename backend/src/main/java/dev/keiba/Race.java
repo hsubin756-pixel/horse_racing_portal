@@ -8,5 +8,11 @@ public class Race {
  String venue;
  int distance;
  String surface;
+ java.time.LocalTime startTime;
+ String raceClass;
+ String weather;
+ String going;
+ String status="SCHEDULED";
+ String source;
  protected Race() {}
 }

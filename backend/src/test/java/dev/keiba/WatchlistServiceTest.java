@@ -15,7 +15,7 @@ class WatchlistServiceTest {
   var entry=new Entry();entry.race=race;entry.horse=horse;
   when(races.upcomingSaved(1L,today,through)).thenReturn(List.of(race));
   when(entries.upcomingFavoriteHorses(1L,today,through)).thenReturn(List.of(entry));
-  when(catalog.view(race)).thenReturn(new CatalogService.RaceView(8L,"Race",today,"Venue",1600,"잔디"));
+  when(catalog.view(race)).thenReturn(new CatalogService.RaceView(8L,"Race",today,"Venue",1600,"잔디",null,null,null,null,"SCHEDULED","synthetic_fixture"));
   var service=new WatchlistService(mock(RaceFavoriteRepository.class),mock(MemberRepository.class),catalog,entries,races,clock);
   var result=service.schedule(1L);
   assertEquals(today,result.asOfDate());assertEquals(1,result.races().size());assertTrue(result.races().getFirst().savedRace());

@@ -7,11 +7,17 @@ public class Entry {
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="race_id") Race race;
  int number;
  String jockey;
+ Long jockeyId;
  Integer finishPosition;
  java.math.BigDecimal timeSeconds;
  Integer popularityRank;
  @Column(precision=7,scale=1) java.math.BigDecimal winOdds;
  String oddsSource;
  java.time.Instant oddsAsOf;
+ Integer gate;
+ java.math.BigDecimal carriedWeight;
+ Integer bodyWeight;
+ Integer weightChange;
+ String status="FINISHED";
  protected Entry() {}
 }

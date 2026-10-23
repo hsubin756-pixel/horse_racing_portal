@@ -14,9 +14,9 @@ export function useLoad<T>(path: string | null) {
  useEffect(()=>{ let active=true; setData(null); setError(''); if(path===null)return; api<T>(path).then(d=>{if(active)setData(d);}).catch(e=>{if(active)setError(e.message);}); return ()=>{active=false;};},[path]);
  return {data,error};
 }
-export type Horse={id:number;name:string;sex:string;birthDate:string;color:string;trainer:string;sire:Ref|null;dam:Ref|null};
+export type Horse={id:number;name:string;sex:string;birthDate:string;color:string;trainer:string;sire:Ref|null;dam:Ref|null;trainerId:number|null};
 export type Ref={id:number;name:string};
-export type Race={id:number;name:string;raceDate:string;venue:string;distance:number;surface:string};
-export type Entry={horseId:number;horseName:string;raceId:number;raceName:string;raceDate:string;number:number;jockey:string;finishPosition:number|null;timeSeconds:number|null;popularityRank:number|null;winOdds:number|null;oddsSource:string|null;oddsAsOf:string|null};
+export type Race={id:number;name:string;raceDate:string;venue:string;distance:number;surface:string;startTime:string|null;raceClass:string|null;weather:string|null;going:string|null;status:string;source:string};
+export type Entry={horseId:number;horseName:string;raceId:number;raceName:string;raceDate:string;number:number;jockey:string;finishPosition:number|null;timeSeconds:number|null;popularityRank:number|null;winOdds:number|null;oddsSource:string|null;oddsAsOf:string|null;gate:number|null;carriedWeight:number|null;bodyWeight:number|null;weightChange:number|null;status:string;jockeyId:number|null};
 export type Page<T>={content:T[];page:number;totalPages:number;totalElements:number};
 export type RaceDetail={race:Race;entries:Entry[]};

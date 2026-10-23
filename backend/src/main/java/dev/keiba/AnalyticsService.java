@@ -38,7 +38,7 @@ class AnalyticsService {
   var completed=entries.findForComparison(new HashSet<>(ids),today);
   var result=horses.stream().map(h->new HorseStats(h,summarize(completed.stream()
    .filter(e->Hibernate.unproxy(e.horse,Horse.class).id.equals(h.id())).toList(),filter,today))).toList();
-  return new Comparison(today,"synthetic_fixture",filter,result);
+  return new Comparison(today,completed.stream().allMatch(e->"synthetic_fixture".equals(Hibernate.unproxy(e.race,Race.class).source))?"synthetic_fixture":"admin_catalog",filter,result);
  }
  List<String> jockeys(String q) {
   if(q.length()>100) throw new ApiException(400,"기수 이름은 100자 이하로 입력하세요.");
@@ -49,12 +49,12 @@ class AnalyticsService {
   var starts=entries.findByJockeyOrderByRaceRaceDateDescRaceIdDesc(name.strip());
   if(starts.isEmpty()) throw new ApiException(404,"기수를 찾을 수 없습니다.");
   var today=LocalDate.now(clock);
-  return new JockeyStats(today,"synthetic_fixture",name.strip(),filter,summarize(starts,filter,today));
+  return new JockeyStats(today,starts.stream().allMatch(e->"synthetic_fixture".equals(Hibernate.unproxy(e.race,Race.class).source))?"synthetic_fixture":"admin_catalog",name.strip(),filter,summarize(starts,filter,today));
  }
  static Statistics summarize(List<Entry> starts,Filter filter,LocalDate today) {
   var completed=starts.stream().filter(e->{
    Race race=Hibernate.unproxy(e.race,Race.class);
-   return e.finishPosition!=null&&!race.raceDate.isAfter(today)
+   return "OFFICIAL".equals(race.status)&&"FINISHED".equals(e.status)&&e.finishPosition!=null&&!race.raceDate.isAfter(today)
     &&(filter.distance()==null||race.distance==filter.distance())
     &&(filter.surface()==null||race.surface.equals(filter.surface()))
     &&(filter.from()==null||!race.raceDate.isBefore(filter.from()))

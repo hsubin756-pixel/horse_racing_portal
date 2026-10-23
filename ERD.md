@@ -1,6 +1,13 @@
 # 관계와 무결성
 ```mermaid
 erDiagram
+ MEMBER ||--o{ PERSONAL_NOTE : writes
+ MEMBER ||--o{ SITE_NOTIFICATION : receives
+ MEMBER ||--o{ CATALOG_AUDIT : changes
+ ENTRY ||--o{ SECTIONAL : checkpoints
+ RACE ||--o{ PAYOUT : settles
+ PERSON ||--o{ ENTRY : rides
+ PERSON ||--o{ HORSE : trains
  MEMBER ||--o{ FAVORITE : owns
  MEMBER ||--o{ RACE_FAVORITE : watches
  RACE ||--o{ RACE_FAVORITE : bookmarked
@@ -33,3 +40,8 @@ Flyway가 스키마를 버전 관리하고 Hibernate는 validate로만 사용합
 인기·단승 배당은 말 자체가 아닌 경주별 Entry의 스냅샷입니다. V4는 nullable 인기(양수), 단승 배수(DECIMAL(7,1), 1.0 이상), 출처, UTC 시각을 추가합니다. 네 값이 모두 있거나 모두 없는 상태만 허용하며 기존 데이터와 V1~V3는 변경하지 않습니다. 가상 배당은 현재 착순 및 ML 입력·출력에서 생성하지 않습니다.
 
 V5의 `race_favorite`는 회원·경주 FK와 `(member_id,race_id)` UNIQUE를 가집니다. 관심 말은 기존 `favorite`를 유지하며 일정은 두 관심 목록에서 동적으로 조회·병합합니다. 성적은 완료 `entry`를 집계하고 별도 통계 테이블을 중복 저장하지 않습니다.
+
+
+V6는 출마표 상세·경주/출전 상태·revision·관리자 권한과 sectional/payout/catalog_audit를 추가합니다. sectional은 `(entry_id,distance)`, payout은 `(race_id,market,combination)` UNIQUE입니다. V8은 환급 상태별 필수값의 NULL 제약을 보강합니다.
+
+V7은 기수/조교사 person ID와 FK, 회원별 personal_note와 site_notification을 추가합니다. 메모는 말 또는 경주 하나를 대상으로 하고 회원/대상별 UNIQUE입니다. 알림은 회원/경주/개최일별 UNIQUE이며 취소·삭제 없이 읽음 상태를 관리합니다. 관리자 수정은 revision과 잠금을 사용하며 자료 변경과 감사 이력을 같은 transaction에 기록합니다.

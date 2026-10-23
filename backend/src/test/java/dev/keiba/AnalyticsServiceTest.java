@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class AnalyticsServiceTest {
  final LocalDate today=LocalDate.of(2026,10,22);
  Entry start(long id,String date,int distance,String surface,Integer finish) {
-  var race=new Race();race.id=id;race.name="Fixture "+id;race.raceDate=LocalDate.parse(date);race.distance=distance;race.surface=surface;
+  var race=new Race();race.id=id;race.status="OFFICIAL";race.name="Fixture "+id;race.raceDate=LocalDate.parse(date);race.distance=distance;race.surface=surface;
   var horse=new Horse();horse.id=22L;horse.name="Horse";
   var entry=new Entry();entry.race=race;entry.horse=horse;entry.finishPosition=finish;entry.number=1;entry.jockey="Jockey";return entry;
  }

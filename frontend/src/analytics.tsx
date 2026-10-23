@@ -63,7 +63,7 @@ export function HorseComparison(){
   <p className="small-note">검색 결과는 최대 20두입니다. 이름으로 범위를 좁혀주세요. 선택 {ids.length}/4두</p>
   <div className="selected-horses">{ids.map(id=>{const name=result.data?.horses.find(h=>String(h.horse.id)===id)?.horse.name||'경주마 #'+id;return <button key={id} className="secondary" onClick={()=>remove(id)} aria-label={name+' 비교에서 제외'}>{name} ×</button>;})}</div>
   <Filters params={params} onChange={setParams}/>
-  <p className="small-note">가상 데이터의 완료 착순만 집계합니다. 승률은 우승/출전, 3위 이내 비율은 1~3위/출전입니다.</p>
+  <p className="small-note">등록된 자료의 확정 완료 착순만 집계합니다. 승률은 우승/출전, 3위 이내 비율은 1~3위/출전입니다.</p>
   <Loading error={result.error} loading={ids.length>0&&!result.data}/>
   {!ids.length&&<p className="notice">비교할 경주마를 선택하세요.</p>}
   {ids.length>0&&result.data&&<><p className="small-note">집계 기준일: {result.data.asOfDate} (한국·일본 시간)</p><div className="comparison-grid">{result.data.horses.map(({horse,statistics})=><article className="comparison-card" key={horse.id}>
@@ -92,7 +92,7 @@ export function StatisticsPage(){
   <div className="entity-pickers"><label className="entity-picker">성적을 볼 경주마<select value="" onChange={e=>choose('horse',e.target.value)}><option value="">경주마 선택</option>{horses.data?.content.map(h=><option key={h.id} value={h.id}>{h.name}</option>)}</select></label>
    <label className="entity-picker">성적을 볼 기수<select value="" onChange={e=>choose('jockey',e.target.value)}><option value="">기수 선택</option>{jockeys.data?.map(name=><option key={name}>{name}</option>)}</select></label></div>
   {horses.data?.content.length===0&&jockeys.data?.length===0&&<p className="notice">검색 결과가 없습니다.</p>}
-  <Filters params={params} onChange={setParams}/><p className="small-note">가상 데이터의 완료 착순만 집계합니다. 예정 경주는 제외하며, 완료 전적이 없으면 비율을 ‘—’로 표시합니다.</p>
+  <Filters params={params} onChange={setParams}/><p className="small-note">등록된 자료의 확정 완료 착순만 집계합니다. 예정 경주는 제외하며, 완료 전적이 없으면 비율을 ‘—’로 표시합니다.</p>
   {horse?<HorseStatistics path={'/horses/'+encodeURIComponent(horse)+'/stats?'+query}/>:jockey?<JockeyStatistics path={'/jockeys/stats?'+query}/>:<p className="notice">성적을 볼 경주마 또는 기수를 선택하세요.</p>}
  </section>;
 }

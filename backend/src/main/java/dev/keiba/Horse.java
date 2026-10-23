@@ -8,6 +8,7 @@ public class Horse {
  java.time.LocalDate birthDate;
  String color;
  String trainer;
+ Long trainerId;
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="sire_id") Horse sire;
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="dam_id") Horse dam;
  protected Horse() {}
