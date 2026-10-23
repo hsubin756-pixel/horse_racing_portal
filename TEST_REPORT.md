@@ -174,5 +174,5 @@ JWT 만료 필드가 없는 서명 토큰의 허용 가능성을 차단했습니
 - ML 이미지 재빌드 후 `GET /health`에 `realDataModel{cutoffDate: 2025-12-28}` 확인. `POST /predict/real` 직접 호출 성공(홀드아웃 지표·시장 기준선·knownStarts 포함).
 - 첫 Spring→ML 호출은 422로 실패: RestClient 기본 ObjectMapper가 `LocalDate`를 `[2022,2,20]` 배열로 직렬화했기 때문(서버 로그로 확인). 날짜를 ISO 문자열로 보내도록 수정하고 PredictServiceTest가 전송 본문 형식을 검사하도록 보강했습니다.
 - 수정 후 브라우저(로그인 상태, `/races/9/prediction`): "KRA OPEN DATA MODEL" 안내, 모델 정보(2025-01-04~2025-12-28, 1,018경주), 지표 표(이 모델 0.738/0.497/0.526, 시장 기준선 0.791/0.585/0.579), 14두 점수(0.262~0.309)와 "보존 전적 없음" 표시를 사용자 캡처로 확인했습니다. 2022년 출주마는 2025년 학습 자료에 없어 전적 입력이 비어 있으며, 이 상태를 숨기지 않고 표시합니다.
-- Chromium `kra.spec.ts`(예측 링크·안내 포함) 통과, `portal.spec.ts` 예측 시나리오(합성 경주) 통과. ML 단위 테스트 8개 통과. `test_ml.py`의 실제 경주 테스트와 Gradle 재실행 결과는 날짜 수정 패치 이후 사용자 보고로 확정합니다.
+- Chromium `kra.spec.ts`(예측 링크·안내 포함) 통과, `portal.spec.ts` 예측 시나리오(합성 경주) 통과. ML 단위 테스트 8개 통과. 날짜 수정 패치 적용 후 `./scripts/gradle.sh test bootJar` **BUILD SUCCESSFUL**(PredictServiceTest의 전송 형식 검사 포함), `tests/test_ml.py` **2개 OK**(실제 경주 `real_data_experiment` 응답·정렬·knownStarts 확인). 학습 CSV `ml/data/seoul-2025.csv`를 커밋해 GitHub 클론에서도 실제 모델이 빌드됩니다.
 - 한계: 학습 마감일 이후 전적은 재학습 전까지 미반영, 서울 1년 자료, 보정 없음. 예측 화면 지표는 홀드아웃 1회 결과입니다.
