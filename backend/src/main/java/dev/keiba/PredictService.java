@@ -9,6 +9,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 @Service
 class PredictService {
+ static final org.slf4j.Logger log=org.slf4j.LoggerFactory.getLogger(PredictService.class);
  final PredictionFeatures features; final RestClient client;
  PredictService(PredictionFeatures features,@Value("${app.ml-url}") String url) {
   this.features=features;
@@ -54,7 +55,16 @@ class PredictService {
    scores.sort(Comparator.comparingDouble(Score::score).reversed().thenComparing(Score::horseId));
    return new Prediction(result.modelKind(),SYNTHETIC_DISCLAIMER,scores,null);
   } catch(org.springframework.web.client.HttpServerErrorException.ServiceUnavailable ex) {
+   log.warn("prediction upstream not ready (race {}, real={}): {}",raceId,input.real(),ex.getStatusCode());
    throw new ApiException(503,input.real()?"실제 데이터 모델이 아직 준비되지 않았습니다. ml/data 에 자료를 두고 서비스를 다시 빌드하세요.":"예측 서비스를 일시적으로 이용할 수 없습니다. 잠시 후 다시 시도하세요.");
-  } catch(RestClientException | IllegalArgumentException ex) { throw new ApiException(503,"예측 서비스를 일시적으로 이용할 수 없습니다. 잠시 후 다시 시도하세요."); }
+  } catch(org.springframework.web.client.RestClientResponseException ex) {
+   // The upstream body may describe a contract mismatch (e.g. 422 validation); keep it in the server log only.
+   String body=ex.getResponseBodyAsString().replaceAll("\\s+"," ");
+   log.warn("prediction upstream rejected request (race {}, real={}): {} {}",raceId,input.real(),ex.getStatusCode(),body.substring(0,Math.min(500,body.length())));
+   throw new ApiException(503,"예측 서비스를 일시적으로 이용할 수 없습니다. 잠시 후 다시 시도하세요.");
+  } catch(RestClientException | IllegalArgumentException ex) {
+   log.warn("prediction upstream failure (race {}, real={}): {}",raceId,input.real(),ex.toString());
+   throw new ApiException(503,"예측 서비스를 일시적으로 이용할 수 없습니다. 잠시 후 다시 시도하세요.");
+  }
  }
 }
