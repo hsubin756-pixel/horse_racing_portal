@@ -27,10 +27,25 @@ class DatasetTests(unittest.TestCase):
         scratched = [starter(3, g, f'004425{g}', str(g) if g < 5 else '') for g in range(1, 6)]
         small = [starter(4, g, f'004426{g}', str(g)) for g in range(1, 4)]
         mixed_distance = [starter(5, g, f'004427{g}', str(g), '1200' if g < 5 else '1400') for g in range(1, 6)]
-        rows, dropped = ds.build_rows([day('2022-02-20', good + tie + scratched + small + mixed_distance)], '1')
+        rows, dropped = ds.build_rows([day('2022-02-20', good + tie + scratched + small + mixed_distance)], '1', drop_scratched=False)
         self.assertEqual(len(rows), 5)
-        self.assertEqual(rows[0], {'race_id': '1:20220220:1', 'race_date': '2022-02-20', 'horse_id': 44231, 'distance': 1200, 'finish_position': 1})
-        self.assertEqual(dropped, {'착순 불완전(동착·4두 미만)': 2, '순위 없음·취소·실격 포함': 1, '거리 불일치': 1})
+        self.assertEqual({k: rows[0][k] for k in ('race_id', 'race_date', 'horse_id', 'distance', 'finish_position')},
+                         {'race_id': '1:20220220:1', 'race_date': '2022-02-20', 'horse_id': 44231, 'distance': 1200, 'finish_position': 1})
+        self.assertEqual(dropped, {'착순 불완전(동착·4두 미만·취소 후 순위 공백)': 2, '순위 없음·취소·실격 포함': 1, '거리 불일치': 1})
+        # Relaxed rule: a scratched starter (blank rank) is dropped and the race kept when the remaining ranks are 1..N.
+        rows, dropped = ds.build_rows([day('2022-02-20', good + scratched)], '1')
+        self.assertEqual(len(rows), 9)
+        self.assertEqual(dropped, {'(참고) 취소마만 제외하고 유지한 경주': 1})
+        gap = [starter(6, g, f'004428{g}', str(g) if g != 3 else '') for g in range(1, 6)]   # rank 3 missing after scratch
+        rows, dropped = ds.build_rows([day('2022-02-20', gap)], '1')
+        self.assertEqual((rows, dropped), ([], {'착순 불완전(동착·4두 미만·취소 후 순위 공백)': 1}))
+
+    def test_extended_columns_are_parsed_and_blank_when_invalid(self):
+        row = dict(starter(1, 1, '0044233', '1'), jckyNm='안토니오', trarNm='최용구', burdWgt='56', winPrice='4.6', placePrice='1.7', rchrWeg='502(-2)', ratgSo='0', gndrNm='수', bthd='2019-04-07')
+        bad = dict(starter(1, 2, '0044234', '2'), burdWgt='-', winPrice='NaN', rchrWeg='?', gtno='x')
+        rows, _ = ds.build_rows([day('2022-02-20', [row, bad] + [starter(1, g, f'004423{g+4}', str(g)) for g in range(3, 5)])], '1')
+        self.assertEqual({k: rows[0][k] for k in ds.EXTRA}, {'jockey': '안토니오', 'trainer': '최용구', 'carried_weight': '56', 'win_odds': '4.6', 'place_odds': '1.7', 'gate': '1', 'horse_weight': 502, 'rating': '0', 'sex': '수', 'birth_date': '2019-04-07'})
+        self.assertEqual({k: rows[1][k] for k in ('carried_weight', 'win_odds', 'horse_weight', 'gate')}, {'carried_weight': '', 'win_odds': '', 'horse_weight': '', 'gate': ''})
 
     def test_export_writes_csv_and_warns_below_thirty_dates(self):
         days = [day(f'2022-02-{d:02d}', [starter(1, g, f'00442{d:02d}{g}', str(g)) for g in range(1, 7)]) for d in (5, 6, 12)]

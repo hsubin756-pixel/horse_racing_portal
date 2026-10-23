@@ -6,7 +6,8 @@
 
 collect 는 경마 시행 요일(서울 토·일, 제주 금·토, 부산경남 금·일; --all-days 로 전체)만 호출하고, 받은 날짜는
 .runtime/kra/ml/meet-<번호>/<날짜>.json 에 보존해 다시 호출하지 않습니다. export 는 보존된 자료만 사용합니다.
-CSV 계약(docs/ML_DATA.md): race_id,race_date,horse_id,distance,finish_position — 완주 순위가 1..N으로 완전한 경주만.
+CSV 계약(docs/ML_DATA.md): race_id,race_date,horse_id,distance,finish_position 뒤에 확장 열(기수·조교사·부담중량·배당 등)이 붙습니다.
+취소·실격 등 순위 없는 출전만 제외하고 나머지 순위가 1..N으로 이어지는 경주를 유지합니다. 기존 ml/evaluate.py 는 앞 5열만 읽습니다.
 """
 import argparse
 import csv
@@ -96,37 +97,69 @@ def load_days(meet):
     return days
 
 
-def build_rows(days, meet):
-    """날짜별 원본을 경주 단위로 검증해 CSV 행과 제외 사유 집계를 돌려줍니다."""
+EXTRA = ['jockey', 'trainer', 'carried_weight', 'win_odds', 'place_odds', 'gate', 'horse_weight', 'rating', 'sex', 'birth_date']
+
+
+def weight_of(value):
+    match = re.fullmatch(r'(\d{3})\s*\(\s*[+-]?\d+\s*\)', (value or '').strip())
+    return int(match.group(1)) if match else ''
+
+
+def decimal_or_blank(value, low, high):
+    value = (value or '').strip()
+    try:
+        number = float(value)
+    except ValueError:
+        return ''
+    return value if low <= number <= high else ''
+
+
+def build_rows(days, meet, drop_scratched=True):
+    """날짜별 원본을 경주 단위로 검증해 CSV 행과 제외 사유 집계를 돌려줍니다.
+
+    drop_scratched=True 이면 순위가 없는 출전(취소·실격 등)만 제외하고 나머지 순위가 1..N으로 이어지면 경주를 유지합니다.
+    """
     races = defaultdict(list)
     for data in days:
         for row in data['rows']:
             races[(data['date'], (row.get('raceNo') or '').strip())].append(row)
     out, dropped = [], defaultdict(int)
+    kept_after_scratch = 0
     for (race_day, race_no), starters in sorted(races.items(), key=lambda kv: (kv[0][0], int(kv[0][1]) if kv[0][1].isdigit() else 0)):
         if not race_no.isdigit():
             dropped['경주번호 없음'] += 1
             continue
-        ranks, horses, distance = [], set(), None
-        ok = True
+        ranked, horses, distance = [], set(), None
+        ok, scratched = True, 0
         for row in starters:
             rank, hrno, dist = (row.get('rk') or '').strip(), (row.get('hrno') or '').strip(), (row.get('raceDs') or '').strip()
             if not re.fullmatch(r'\d{1,2}', rank) or int(rank) == 0:
+                if drop_scratched:
+                    scratched += 1
+                    continue
                 ok = False; dropped['순위 없음·취소·실격 포함'] += 1; break
             if not re.fullmatch(r'\d{1,16}', hrno) or int(hrno) == 0 or int(hrno) in horses:
                 ok = False; dropped['마번 누락·중복'] += 1; break
             if not dist.isdigit() or not 400 <= int(dist) <= 10000 or (distance is not None and distance != int(dist)):
                 ok = False; dropped['거리 불일치'] += 1; break
             distance = int(dist)
-            ranks.append(int(rank)); horses.add(int(hrno))
+            horses.add(int(hrno)); ranked.append(row)
         if not ok:
             continue
-        if not 4 <= len(starters) <= 100 or sorted(ranks) != list(range(1, len(starters) + 1)):
-            dropped['착순 불완전(동착·4두 미만)'] += 1
+        if not 4 <= len(ranked) <= 100 or sorted(int(r['rk']) for r in ranked) != list(range(1, len(ranked) + 1)):
+            dropped['착순 불완전(동착·4두 미만·취소 후 순위 공백)'] += 1
             continue
-        for row in starters:
+        kept_after_scratch += scratched > 0
+        for row in ranked:
             out.append({'race_id': f'{meet}:{race_day.replace("-", "")}:{race_no}', 'race_date': race_day,
-                        'horse_id': int(row['hrno']), 'distance': distance, 'finish_position': int(row['rk'])})
+                        'horse_id': int(row['hrno']), 'distance': distance, 'finish_position': int(row['rk']),
+                        'jockey': (row.get('jckyNm') or '').strip(), 'trainer': (row.get('trarNm') or '').strip(),
+                        'carried_weight': decimal_or_blank(row.get('burdWgt'), 30, 80), 'win_odds': decimal_or_blank(row.get('winPrice'), 1, 9999),
+                        'place_odds': decimal_or_blank(row.get('placePrice'), 1, 9999), 'gate': (row.get('gtno') or '').strip() if (row.get('gtno') or '').strip().isdigit() else '',
+                        'horse_weight': weight_of(row.get('rchrWeg')), 'rating': decimal_or_blank(row.get('ratgSo'), 0, 200),
+                        'sex': (row.get('gndrNm') or '').strip(), 'birth_date': (row.get('bthd') or '').strip()})
+    if kept_after_scratch:
+        dropped['(참고) 취소마만 제외하고 유지한 경주'] = kept_after_scratch
     return out, dict(dropped)
 
 
@@ -140,14 +173,14 @@ def export(meet, output):
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open('w', newline='', encoding='utf-8') as sink:
-        writer = csv.DictWriter(sink, fieldnames=['race_id', 'race_date', 'horse_id', 'distance', 'finish_position'])
+        writer = csv.DictWriter(sink, fieldnames=['race_id', 'race_date', 'horse_id', 'distance', 'finish_position'] + EXTRA)
         writer.writeheader()
         writer.writerows(rows)
     dates = sorted({r['race_date'] for r in rows})
     races = len({r['race_id'] for r in rows})
     print(f'{MEETS[meet]}: 보존 날짜 {len(days)}개 중 자료 있는 날짜 {len(dates)}개, 경주 {races}개, 출전 {len(rows)}건 → {output}')
     for reason, count in sorted(dropped.items()):
-        print(f'  제외 {reason}: {count}경주')
+        print(f'  {"" if reason.startswith("(참고)") else "제외 "}{reason}: {count}경주')
     if len(dates) < 30:
         print('주의: evaluate.py 는 서로 다른 개최일 30일 이상을 요구합니다. 기간을 넓혀 collect 를 더 실행하세요.')
     else:

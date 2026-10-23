@@ -43,3 +43,15 @@ python3 scripts/kra_ml_dataset.py export --meet 1 --output .runtime/kra/ml/seoul
 
 ### 2025년 서울 자료 평가 결과 (2026-10-23)
 97개 개최일·833경주·8,790건으로 위 절차를 실행했습니다. 홀드아웃(2025-10-25~) ROC-AUC 0.686, AP 0.447(양성 비율 0.277), Brier 0.185(기준 0.200), 상위 3두 recall 0.466(95% 0.433~0.498). 세부와 한계는 TEST_REPORT.md에 있습니다. 이 결과는 "실제 데이터로 학습하고 평가한 실험 모델"에 해당하며 서비스에 반영되지 않았습니다.
+
+### 취소마 완화 규칙과 입력 확장 비교 (2026-10-23)
+- `export`는 이제 순위가 없는 출전(취소·실격 등)만 제외하고 나머지 순위가 1..N으로 이어지면 경주를 유지합니다(이전에는 경주 전체 제외). 유지한 경주 수를 "(참고)"로 출력합니다. 취소 후 순위에 공백이 생긴 경주는 여전히 제외합니다.
+- CSV 뒤쪽에 `jockey, trainer, carried_weight, win_odds, place_odds, gate, horse_weight, rating, sex, birth_date` 열이 붙습니다. 기존 `ml/evaluate.py`는 앞 5열만 읽으므로 그대로 동작합니다.
+- `ml/evaluate_extended.py`는 같은 분할·같은 고정 모델로 네 입력 집합(base → +기수/조교사 과거 3위 이내 비율 → +부담중량·마체중·게이트·두수·나이·성별 → +단승 배당)을 비교하고, 모델 없이 배당 순위만으로 고르는 시장 기준선도 함께 냅니다. 기수·조교사 비율은 이전 날짜 결과만 사용합니다. 배당은 마감 후 시장 정보이므로 "시장과 독립적인 예측"으로 제시할 수 없습니다.
+
+```bash
+python3 scripts/kra_ml_dataset.py export --meet 1 --output .runtime/kra/ml/seoul-2025.csv
+.runtime/ml-venv/bin/python ml/evaluate.py .runtime/kra/ml/seoul-2025.csv --provenance '…' --output .runtime/kra/ml/report-meet1.json
+.runtime/ml-venv/bin/python ml/evaluate_extended.py .runtime/kra/ml/seoul-2025.csv --provenance '…' --output .runtime/kra/ml/report-meet1-extended.json
+.runtime/ml-venv/bin/python -m unittest ml.test_evaluation_extended   # 또는 cd ml && python -m unittest test_evaluation_extended
+```
