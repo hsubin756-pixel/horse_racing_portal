@@ -39,15 +39,15 @@ REGISTRY = {
     'jockey-current': ('currentjockeyInfo/getcurrentjockeyinfo', 'ServiceKey', ('jk_name', 'jk_no', 'meet'), (), 15086329),
     'jockey-result': ('API11_1/jockeyResult_1', 'ServiceKey', ('jk_name', 'jk_no', 'meet'), (), 15056591),
     'trainer-info': ('API19_1/trainerInfo_1', 'ServiceKey', ('meet', 'tr_name', 'tr_no'), (), 15057915),
-    'total-record': ('totalRecord_1', 'ServiceKey', ('meet', 'pr_gubun', 'pr_name', 'pr_no'), (), 15058399),
-    'race-plan': ('racePlan_2', 'ServiceKey', ('meet', 'rc_date', 'rc_month', 'rc_year'), (), 15056499),
+    'total-record': ('API27_1/totalRecord_1', 'ServiceKey', ('meet', 'pr_gubun', 'pr_name', 'pr_no'), (), 15058399),
+    'race-plan': ('API72_2/racePlan_2', 'ServiceKey', ('meet', 'rc_date', 'rc_month', 'rc_year'), (), 15056499),
     'race-plan-info': ('API45/rcplnInfo', 'serviceKey', ('meet', 'pg_date'), ('meet', 'pg_date'), 15173122),
     'ai-race-plan': ('API154/racePlan', 'serviceKey', ('rccrs_cd', 'race_dt'), ('rccrs_cd', 'race_dt'), 15143802),
-    'ai-race-result': ('raceResult', 'serviceKey', ('rccrs_cd', 'race_dt'), ('rccrs_cd', 'race_dt'), 15143803),
+    'ai-race-result': ('API155/raceResult', 'serviceKey', ('rccrs_cd', 'race_dt'), ('rccrs_cd', 'race_dt'), 15143803),
     'ai-race-detail': ('API156/raceRsutDtl', 'serviceKey', ('rccrs_cd', 'race_dt', 'race_no'), (), 15150068),
     'race-result-3': ('API4_3/raceResult_3', 'ServiceKey', ('meet', 'rc_date', 'rc_month', 'rc_no', 'rc_year'), (), 15058305),
     'race-result-detail': ('racedetailresult/getracedetailresult', 'ServiceKey', ('meet', 'rc_date', 'rc_no'), ('meet', 'rc_date'), 15089492),
-    'race-result-total': ('Race_Result_total', 'serviceKey', ('meet', 'rc_year', 'rc_month', 'rc_date', 'rc_no'), (), 15119524),
+    'race-result-total': ('API299/Race_Result_total', 'serviceKey', ('meet', 'rc_year', 'rc_month', 'rc_date', 'rc_no'), (), 15119524),
     'race-summary': ('API34_1/raceSummaryResult_1', 'ServiceKey', ('meet', 'rc_date', 'rc_month', 'rc_year'), (), 15057579),
     'race-performance': ('API44/rcpfmcInfo', 'serviceKey', ('meet', 'rc_date', 'rc_no'), ('meet', 'rc_date'), 15173120),
     'race-info': ('API3_1/raceInfo_1', 'ServiceKey', ('meet', 'rc_date', 'rc_month', 'rc_no', 'rc_year'), (), 15059144),
@@ -63,6 +63,7 @@ REGISTRY = {
     'sanction': ('API180_1/sanctionHistory_1', 'ServiceKey', ('meet', 'rc_date', 'rc_month', 'rc_no', 'rc_year'), (), 15037098),
     'race-result': ('API214_1/RaceDetailResult_1', 'serviceKey', ('meet', 'rc_year', 'rc_month', 'rc_date', 'rc_no'), (), 15063979),
 }
+# 포털 한글 페이지의 Swagger 명세는 네 API(API27_1, API72_2, API155, API299)의 폴더를 비워 두므로 영문 페이지의 주소를 사용했습니다.
 MASKED = {'birthday'}
 
 

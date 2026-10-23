@@ -2,6 +2,8 @@
 
 2026-10-23 공공데이터포털(data.go.kr)의 각 API 상세 페이지에 내장된 명세(Swagger 또는 요청/출력 표)를 읽어 정리했습니다. 사용자 계정에 **개발계정으로 51건 모두 승인**(만료 2028-10-23)되어 있으며, 인증키는 계정당 하나이므로 `.runtime/kra/service-key`를 그대로 사용합니다. 실제 호출 결과는 사용자 PC에서 확인해야 하며, 아래 항목명은 포털 명세 기준입니다. 필드 수가 많은 API는 핵심 항목만 적었습니다.
 
+한글 상세 페이지의 Swagger 명세 4건(통산경주기록, 경주계획표, AI학습용_경주결과, 경주결과종합)은 API 폴더가 비어 있어 호출 시 HTTP 400이 났고, 영문 페이지(`/en/data/<ID>/openapi.do`)에서 전체 주소를 확인해 보정했습니다.
+
 공통 규칙: 모든 API는 `https://apis.data.go.kr/B551015/...` 아래의 GET 호출이며 `serviceKey`(또는 `ServiceKey`), `pageNo`, `numOfRows`를 받습니다. 대부분 `_type=json`을 지원하지만 구형 API(표 형식 명세, XML 전용 표기)는 XML만 보장됩니다. 경마장 코드는 보통 1 서울 / 2 제주 / 3 부산경남(영남) / 4 영천이며 API마다 다릅니다(`meet` 또는 `rccrs_cd`). 영천 경주는 부산경남과 합쳐 "영남"으로 표출되는 API가 있습니다.
 
 ## 사이트 반영 우선순위
@@ -11,7 +13,7 @@
 | 1 | 경주마 | 경주마 상세정보(API8_2), 마필종합 상세정보(API42_1), 경주마명단, 말정보 및 개체식별 | 말 상세(모색·생년월일·산지·조교사·마주·부모), 은퇴마 포함 마스터 |
 | 1 | 혈통 | 경주마 선대마정보(API47), 혈통정보기본(API284), 씨수말 정보, 교배정보 | 3대(최대 5대) 혈통, 부모 연결 |
 | 1 | 인물 | 기수 상세정보(API12_1), 현직기수정보, 기수 성적 정보(API11_1), 조교사 상세정보(API19_1), 통산경주기록 | 기수·조교사 프로필·순위 |
-| 1 | 예정 경주 | 경주계획표(racePlan_2), 경주계획정보(API45), AI학습용_경주계획(API154) | 예정 경주·발주 시각·상금, 관심 일정 |
+| 1 | 예정 경주 | 경주계획표(API72_2), 경주계획정보(API45), AI학습용_경주계획(API154) | 예정 경주·발주 시각·상금, 관심 일정 |
 | 2 | 결과 | 경주성적정보(API214_1, 연동됨), 경주기록 정보(API4_3), 경주별상세성적표, 경마시행당일_경주결과종합, 경주 요약성적표, 경마성적정보(API44), 마필경주별 상금정보 | 다른 경마장 결과, 확정 배당(단·연·복·쌍·삼복·삼쌍), 취소/확정 플래그 |
 | 2 | 구간 | 경주 구간별 성적 정보(API6_1), 마필 구간별 경주기록(API37_1), 경주마 구간별 통과 누적기록(API46), 경마코너별통과순위_주로빠르기(API303) | 구간 분석·주행 스타일 |
 | 2 | 환경 | 경주로정보(API189_1), 경주조건별 최고기록(API32_1) | 주로 상태·함수율, 거리별 최고기록 |
@@ -63,10 +65,10 @@
 ### 조교사 상세정보 — `API19_1/trainerInfo_1` (ID 15057915)
 요청: `meet`, `tr_name`, `tr_no`. 응답: `trNo`, `trName`, `meet`, `part`, `birthday`, `age`, `stDate` 데뷔, 통산/최근 1년 출주·1·2·3착, `winRate`/`qnlRate`/`plcRate`(T/Y).
 
-### 마필,기수,조교사 통산경주기록 — `totalRecord_1` (ID 15058399)
+### 마필,기수,조교사 통산경주기록 — `API27_1/totalRecord_1` (ID 15058399)
 요청: `meet`, `pr_gubun`(0 경주마, 1 마주, 2 조교사, 3 기수), `pr_name`, `pr_no`. 응답: 통산/최근 1년/최근 6개월의 출주·1~5위·착순상금·조건상금. 세 종류 프로필을 하나의 호출 형식으로 보강.
 
-### 경주계획표 — `racePlan_2` (ID 15056499, host `B551015/` 직하)
+### 경주계획표 — `API72_2/racePlan_2` (ID 15056499)
 요청: `meet`, `rc_date`, `rc_month`, `rc_year`(모두 생략 시 최근 한 달). 응답: `meet`, `rcDate`, `rcNo`, `ilsu`, `schStTime` 발주 예정 시각, `rcDist`, `rank`, `budam`, `rcName`, `stRating`/`spRating`, `ageCond`, `sexCond`, `chaksun1~5`, `buga1~3`. 출전마 명단은 없음(경주 단위).
 
 ### 경주계획정보 — `API45/rcplnInfo` (ID 15173122)
@@ -75,7 +77,7 @@
 ### AI학습용_경주계획 — `API154/racePlan` (ID 15143802)
 요청: `rccrs_cd`(필수), `race_dt`(필수), `_type`(필수). 응답: `rccrsNm`, `raceDt`, `raceNo`, `rcgrd`, `raceNm`, `raceDs`, `ptinNhr` 출전두수, `raceClas`, 조건 5종, 상금, `strtPargTm`, `strtTm`, `wetr`, `going`.
 
-### AI학습용_경주결과 — `raceResult` (ID 15143803, host `B551015/` 직하)
+### AI학습용_경주결과 — `API155/raceResult` (ID 15143803)
 요청: `rccrs_cd`, `race_dt`, `_type` 모두 필수. 응답(출전마 단위): `raceDt`, `raceNo`, `raceDs`, `raceNm`, `gtno` 출발번호, `hrno`, `hrnm`, `engHrnm`, `pctyNm`, `bthd`, `gndrNm`, `ratgSo`, `rchrWeg`, `burdWgt`, `jckyNm`, `trarNm`, `ownerNm`, `rk` 순위, `raceRcd` 기록, `margin` 착차, `winPrice` 단승, `placePrice` 연승. 기수·조교사 번호가 없어 이름 매칭 필요.
 
 ### AI기반연구용_경주결과상세 — `API156/raceRsutDtl` (ID 15150068)
@@ -85,7 +87,7 @@
 
 - **경주기록 정보 `API4_3/raceResult_3`** (15058305): 경주성적정보(API214_1)와 거의 같은 90개 항목 + 영문명. `plcOdds`가 "복승식"으로 표기되어 있으나 경주 요약성적표에는 `plcOdds`=연승식, `qnlOdds`=복승식으로 구분되므로 **연승식**으로 해석합니다(포털의 경주성적정보 설명도 연승식). 사이트 반영 시 명시.
 - **경주별상세성적표 `racedetailresult/getracedetailresult`** (15089492, XML): `meet`·`rc_date` 필수. `win` 단승, `plc` 연승, `hrRating`, `hrTool`, `owCloth`, `chulYn`, 기수/조교사 소속 경마장.
-- **경마시행당일_경주결과종합 `Race_Result_total`** (15119524): 94개 항목. `noraceFlag`(0 정상, 1 취소, 2 불성립), `finalBit` 확정 여부, `stTime`/`schStTime`, 기수·조교사 통산/1년 성적 포함. 실시간 제공.
+- **경마시행당일_경주결과종합 `API299/Race_Result_total`** (15119524): 94개 항목. `noraceFlag`(0 정상, 1 취소, 2 불성립), `finalBit` 확정 여부, `stTime`/`schStTime`, 기수·조교사 통산/1년 성적 포함. 실시간 제공.
 - **경주 요약성적표 `API34_1/raceSummaryResult_1`** (15057579): 단승·연승·복승·쌍승·복연승·삼복승·삼쌍승의 우승 출주번호와 배당률 → 조합별 확정 환급표의 실제 자료원.
 - **경마성적정보 `API44/rcpfmcInfo`** (15173120): `meet`·`rc_date` 필수. 착순·착차·누적착차·착순상금·마체중편차·기수감량. 영천 포함.
 - **마필경주별 상금정보** (15086325, XML): `meet`, `hr_name`, `rc_date_fr/to`. 착순상금·부가상금.
