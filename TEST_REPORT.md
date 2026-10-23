@@ -141,4 +141,9 @@ JWT 만료 필드가 없는 서명 토큰의 허용 가능성을 차단했습니
 
 - 프론트엔드 `tsc --noEmit`과 Vite production build **통과** (클라우드 세션).
 - 추가한 검증 코드: JUnit `OddsRankTest` 3개(최저 배당 1위·공동 2위·값 비교·배당 없음/취소/빈 목록), 실제 API `test_odds.py::test_odds_rank_is_computed_from_stored_win_odds`(경주 1 전원 순위 일치·전적과 동일 값, 예정 경주 8의 미제공 1건 null과 11두/12두 표시), `test_kra_integration.py`(같은 배당 두 마리의 공동 1위), Chromium `portal.spec.ts`(열·안내·정렬·공동 표기·계산 두수).
-- **실행하지 못한 항목**: Gradle 컴파일·JUnit, backend bootJar, 실제 MySQL/API 시험, Chromium 시나리오. 이 세션의 클라우드 환경은 `repo.maven.apache.org`·`plugins.gradle.org` 접속이 정책으로 거부되고 Docker 데몬이 없습니다. 연결된 PC의 격리 환경에도 Gradle·Docker·외부 네트워크가 없습니다. 따라서 백엔드 변경은 컴파일조차 확인되지 않은 상태이며 사용자 PC(WSL)에서 위 명령으로 검증한 뒤 결과를 이 절에 기록해야 합니다. 통과했다고 주장하지 않습니다.
+- 클라우드 세션에서는 `repo.maven.apache.org`·`plugins.gradle.org` 접속 거부와 Docker 부재로 백엔드 빌드·API·브라우저 검증을 실행할 수 없었습니다. 아래는 **사용자 PC(WSL Ubuntu, Docker Compose)에서 패치 적용 후 실행한 결과**이며 사용자가 출력을 보고했습니다.
+- `./scripts/gradle.sh test bootJar`: compileJava·test 실제 실행, **BUILD SUCCESSFUL (43s)**. JUnit은 기존 20개 + `OddsRankTest` 3개.
+- `./scripts/up.sh` 재빌드 후 실제 MySQL/API: `test_kra_integration.py` **5개 통과 (19.1s)** — 같은 배당 두 마리의 공동 1위(1, true, 2/2) 포함. `test_odds.py`의 새 검사도 함께 실행했습니다.
+- Chromium: Ubuntu 26.04를 Playwright가 지원하지 않아 `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64`로 24.04용 브라우저를 설치했습니다. 첫 실행 11개 중 7개 통과·4개 실패. 이번 변경을 검증하는 "popularity, win odds, sorting and unavailable snapshots"(새 열·안내·배당 기준 인기순 정렬·공동 표기·11두/12두 표시)는 첫 실행에서 통과했습니다.
+- 실패 4개의 원인: 사용자 DB에 실제 서울 경주(`KRA_API214_1`, 2022-02-20)가 반영되어 있어 2025년 기수 순위 행이 12→26으로 늘어난 것(가상 12 + 실제 14)과, 느린 WSL 환경에서 30초 제한 초과. 기수 검사를 "2025년 출전이 있는 기수 12명"으로 바꾸고 제한 시간을 90초(검증 대기 15초, `PLAYWRIGHT_TEST_TIMEOUT`으로 조정)로 늘린 뒤 **실패 4개 재실행 전체 통과**, 사용자 보고 기준 11개 전체 통과입니다. 애플리케이션 코드는 바꾸지 않았습니다.
+- 한계: 결과는 사용자 보고를 옮긴 것이며 이 세션이 직접 관측하지 않았습니다. 실제 서울 경주 14건의 내용 정합성은 별도 검증하지 않았고, 다른 기존 테스트가 실제 자료 추가 시에도 모두 견고한지는 전수 확인하지 않았습니다(이번 실행에서는 통과).
