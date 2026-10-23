@@ -24,10 +24,10 @@ class PredictionFeatures {
    for(var entry:starters) {
     var horse=org.hibernate.Hibernate.unproxy(entry.horse,Horse.class);
     if(horse.kraId==null||!horse.kraId.matches("\\d{1,16}")) throw new ApiException(400,"한국마사회 마번이 없는 출주마가 있어 실제 데이터 모델을 적용할 수 없습니다.");
-    horses.add(new PredictService.RealHorse(horse.id,horse.kraId,entry.carriedWeight==null?null:entry.carriedWeight.doubleValue(),entry.bodyWeight,entry.gate,horse.birthDate,horse.sex,entry.jockey,entry.trainerName));
+    horses.add(new PredictService.RealHorse(horse.id,horse.kraId,entry.carriedWeight==null?null:entry.carriedWeight.doubleValue(),entry.bodyWeight,entry.gate,horse.birthDate==null?null:horse.birthDate.toString(),horse.sex,entry.jockey,entry.trainerName));
    }
    horses.sort(Comparator.comparing(PredictService.RealHorse::horseId));
-   return new Input(Map.copyOf(names),List.of(),true,new PredictService.RealRequest(race.raceDate,race.distance,horses));
+   return new Input(Map.copyOf(names),List.of(),true,new PredictService.RealRequest(race.raceDate.toString(),race.distance,horses));
   }
   var past=entries.pastForHorses(names.keySet(),race.raceDate);
   var stats=new HashMap<Long,IntSummaryStatistics>();

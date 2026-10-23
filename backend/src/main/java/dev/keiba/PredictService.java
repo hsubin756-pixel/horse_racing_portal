@@ -20,8 +20,9 @@ class PredictService {
  record MlRequest(List<Features> horses) {}
  record MlScore(Long horseId,Double score) {}
  record MlResponse(String modelKind,List<MlScore> scores) {}
- record RealHorse(Long horseId,String kraId,Double carriedWeight,Integer bodyWeight,Integer gate,java.time.LocalDate birthDate,String sex,String jockey,String trainer) {}
- record RealRequest(java.time.LocalDate raceDate,int distance,List<RealHorse> horses) {}
+ /** Dates travel as ISO strings: the RestClient's default mapper would otherwise write LocalDate as [y,m,d], which the ML service rejects. */
+ record RealHorse(Long horseId,String kraId,Double carriedWeight,Integer bodyWeight,Integer gate,String birthDate,String sex,String jockey,String trainer) {}
+ record RealRequest(String raceDate,int distance,List<RealHorse> horses) {}
  record RealScore(Long horseId,Double score,Integer knownStarts) {}
  record RealResponse(String modelKind,String cutoffDate,String firstDate,Integer trainingRaces,Map<String,Object> holdoutMetrics,Map<String,Object> marketBaselineMetrics,List<RealScore> scores) {}
  record Score(Long horseId,String horseName,double score,Integer knownStarts) {}
