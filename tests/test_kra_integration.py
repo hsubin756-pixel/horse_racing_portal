@@ -49,6 +49,8 @@ class KraIntegrationTests(unittest.TestCase):
         e = race['entries'][0]
         self.assertIsNone(e['popularityRank'])
         self.assertEqual(e['winOdds'], 4.6)
+        # 두 출전마의 단승 배당이 같으므로 배당 기준 인기는 공동 1위, 계산 두수 2/2
+        self.assertEqual([(x['oddsRank'], x['oddsRankShared'], x['oddsRankField'], x['oddsRankTotal']) for x in race['entries']], [(1, True, 2, 2)] * 2)
         self.assertIsNone(e['gate'])
         self.assertEqual(e['trainerName'], '가상 검증 조교사')
         self.assertEqual(request('/horses/' + str(e['horseId']))[1]['kraId'], self.rows[0]['hrNo'])

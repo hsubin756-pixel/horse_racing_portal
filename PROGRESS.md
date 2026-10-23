@@ -73,3 +73,8 @@ JUnit 20개·실제 API 24개·Chromium 10개 시나리오 통과, V1~V8 신규 
 - 서울 정상 완주 경주만 지원하며 공식 인기·plcOdds 승식·엔화/원화 환급금은 추정하지 않습니다. 가져온 자료의 웹 관리자 수정과 실제 경주에 대한 합성 모델 예측을 차단했습니다.
 - 출처/수집 시각, 거리 및 코너 기록, 한국마사회 말 번호, 경주 당시 조교사를 화면에 표시합니다. 사용자 안내는 [KRA_API.md](docs/KRA_API.md).
 - 백업/별도 스키마 복원 확인 후 V9 적용, JUnit 20개 및 빌드 통과, Python 43개 검증 완료(이전 배당 계약 검사 수정 후 관련 3개 재실행), Chromium 11개 전체 통과. 실제 사용자 원본의 DB 반영은 사용자 PC에서 실행해야 합니다.
+
+## 배당 기준 인기 순위 — 2026-10-23
+- 사용자가 인기 순위를 배당률로 계산해 배정하도록 요청했습니다. 저장된 단승 배당이 낮은 말부터 순위를 매기고 같은 배당은 공동 순위, 배당이 없는 말은 비워 두며 ‘배당 기준 인기’로 표시해 공식 인기 순위와 구분합니다. 이미 반영된 경주에도 적용되도록 DB에 저장하지 않고 조회 시 계산합니다. 일부 말의 배당이 빠지면 계산에 사용한 두수(예: 11두 기준, 전체 12두)를 함께 표시합니다.
+- 변경: `CatalogService`(oddsRank/withOddsRanks, EntryView 4개 필드), `EntryRepository.oddsByRace`, `main.tsx`(열·정렬·안내), `api.ts`, `style.css`, JUnit `OddsRankTest`, `tests/test_odds.py`·`test_kra_integration.py`(공동 1위), `e2e/portal.spec.ts`, API.md.
+- 이 작업은 이전 세션의 사용 한도 소진으로 중단된 뒤 새 세션에서 다시 구현했습니다. 새 세션의 클라우드 환경은 Maven Central·Gradle 플러그인 저장소 접속이 차단되고 Docker가 없어 **백엔드 빌드·JUnit·실제 API·브라우저 검증을 실행하지 못했습니다.** 프론트엔드 TypeScript 검사와 Vite production build만 통과했습니다. 사용자 PC(WSL)에서 `git pull` 후 `./scripts/gradle.sh test bootJar`, `./scripts/up.sh`, `python3 -m unittest discover -s tests -p 'test_odds.py' -v`, `npx playwright test`를 실행해 확인해야 합니다.

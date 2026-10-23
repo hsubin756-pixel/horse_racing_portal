@@ -50,6 +50,12 @@ test('popularity, win odds, sorting and unavailable snapshots',async({page})=>{
  await page.getByLabel('출주마 정렬').selectOption('popularityRank');
  await expect(page.locator('.entry-table tbody tr').first().locator('.popularity-value')).toHaveText('1위');
  await expect(page.locator('.entry-table tbody tr').first().locator('.odds-value strong')).toHaveText('2.4배');
+ await expect(page.getByRole('columnheader',{name:'배당 기준 인기',exact:true})).toBeVisible();
+ await expect(page.locator('.odds-note')).toContainText('배당 기준 인기');
+ await page.getByLabel('출주마 정렬').selectOption('oddsRank');
+ await expect(page.locator('.entry-table tbody tr').first().locator('.odds-rank-value')).toHaveText('1위');
+ const oddsRanks=(await page.locator('.odds-rank-value').allTextContents()).map(v=>parseInt(v.replace('공동 ','')));
+ expect(oddsRanks).toEqual([...oddsRanks].sort((a,b)=>a-b));
  await page.getByLabel('출주마 정렬').selectOption('winOdds');
  const odds=await page.locator('.odds-value strong').allTextContents();
  const values=odds.map(value=>parseFloat(value));expect(values).toEqual([...values].sort((a,b)=>a-b));
@@ -63,6 +69,8 @@ test('popularity, win odds, sorting and unavailable snapshots',async({page})=>{
  await page.getByLabel('출주마 정렬').selectOption('winOdds');
  await expect(page.locator('.entry-table tbody tr').last().locator('.odds-value')).toHaveText('미제공');
  await expect(page.locator('.entry-table tbody tr').last().locator('.popularity-value')).toHaveText('미제공');
+ await expect(page.locator('.entry-table tbody tr').last().locator('.odds-rank-value')).toHaveText('—');
+ await expect(page.locator('.entry-table tbody tr').first().locator('.odds-rank-value')).toContainText('11두 기준 (전체 12두)');
  await page.setViewportSize({width:375,height:812});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBeTruthy();
  const region=page.getByRole('region',{name:'출주마 및 배당 표'});

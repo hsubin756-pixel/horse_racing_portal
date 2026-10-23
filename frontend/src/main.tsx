@@ -24,13 +24,13 @@ function EntryTable({entries,mode}:{entries:Entry[];mode:'horse'|'race'}) {
   timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false
  }).format(new Date(value));
  return <>
-  <p className="odds-note">단승 배당은 1위 적중 시 원금을 포함한 배수입니다. 가상 샘플과 한국마사회 자료의 출처를 구분해 표시합니다. 실시간 배당이 아닙니다. 제공되지 않은 인기 순위는 추정하지 않습니다. 인기 순위는 착순·모델 예측 순위와 다릅니다.</p>
+  <p className="odds-note">단승 배당은 1위 적중 시 원금을 포함한 배수입니다. 가상 샘플과 한국마사회 자료의 출처를 구분해 표시합니다. 실시간 배당이 아닙니다. 제공되지 않은 공식 인기 순위는 추정하지 않습니다. <b>배당 기준 인기</b>는 저장된 단승 배당이 낮은 순서로 조회 시 계산한 순위이며 공식 인기 순위가 아닙니다. 같은 배당은 공동 순위로, 배당이 없는 말은 순위를 비워 둡니다. 인기 순위는 착순·모델 예측 순위와 다릅니다.</p>
   <div className="table-wrap" role="region" aria-label={mode==='horse'?'출전 전적 표':'출주마 및 배당 표'} tabIndex={0}>
    <table className="entry-table">
     <thead><tr>
      <th scope="col">{mode==='horse'?'경주일':'마번'}</th>
      <th scope="col">{mode==='horse'?'경주명':'경주마'}</th>
-     <th scope="col">기수</th>{hasTrainer&&<th scope="col">경주 당시 조교사</th>}<th scope="col">인기</th><th scope="col">단승 배당</th>
+     <th scope="col">기수</th>{hasTrainer&&<th scope="col">경주 당시 조교사</th>}<th scope="col">인기</th><th scope="col">배당 기준 인기</th><th scope="col">단승 배당</th>
      <th scope="col">출전 상태</th><th scope="col">게이트</th><th scope="col">부담중량</th><th scope="col">마체중(증감)</th><th scope="col">주파기록(초)</th><th scope="col">착순</th>
     </tr></thead>
     <tbody>{entries.map(e=><tr key={e.raceId+'-'+e.horseId}>
@@ -39,6 +39,7 @@ function EntryTable({entries,mode}:{entries:Entry[];mode:'horse'|'race'}) {
      <td><Link to={e.jockeyId?"/people/"+e.jockeyId:"/statistics?jockey="+encodeURIComponent(e.jockey)}>{e.jockey} ↗</Link></td>
      {hasTrainer&&<td>{e.trainerId?<Link to={'/people/'+e.trainerId}>{e.trainerName} ↗</Link>:'미제공'}</td>}
      <td className="popularity-value">{e.popularityRank==null?'미제공':e.popularityRank+'위'}</td>
+     <td className="odds-rank-value">{e.oddsRank==null?'—':<>{e.oddsRankShared?'공동 ':''}{e.oddsRank}위{e.oddsRankField!=null&&e.oddsRankTotal!=null&&e.oddsRankField<e.oddsRankTotal&&<small>{e.oddsRankField}두 기준 (전체 {e.oddsRankTotal}두)</small>}</>}</td>
      <td className="odds-value">{e.winOdds==null?'미제공':<>
       <strong>{e.winOdds.toFixed(1)}배</strong>
       <small>{sourceLabel(e.oddsSource||'제공 자료')}</small>
@@ -55,7 +56,7 @@ function RaceList(){const [params,setParams]=useSearchParams();const q=params.ge
 function RacePage() {
  const {id}=useParams();
  const {data,error}=useLoad<RaceDetail>('/races/'+id);
- const [sort,setSort]=useState<'finishPosition'|'number'|'popularityRank'|'winOdds'>('finishPosition');
+ const [sort,setSort]=useState<'finishPosition'|'number'|'popularityRank'|'oddsRank'|'winOdds'>('finishPosition');
  const entries=[...(data?.entries??[])].sort((a,b)=>
   ((a[sort]??Infinity)-(b[sort]??Infinity)) || a.number-b.number);
  return <section>
@@ -71,7 +72,7 @@ function RacePage() {
    <RaceWatchButton key={id} id={Number(id)}/><div className="entry-controls"><label htmlFor="entry-sort">출주마 정렬</label>
     <select id="entry-sort" value={sort} onChange={e=>setSort(e.target.value as typeof sort)}>
      <option value="finishPosition">착순순</option><option value="number">마번순</option>
-     <option value="popularityRank">인기순</option><option value="winOdds">단승 배당 낮은순</option>
+     <option value="popularityRank">인기순</option><option value="oddsRank">배당 기준 인기순</option><option value="winOdds">단승 배당 낮은순</option>
     </select>
    </div>
    <EntryTable entries={entries} mode="race"/><RaceSectionals key={id} id={Number(id)}/><Payouts id={Number(id)} source={data.race.source}/>
