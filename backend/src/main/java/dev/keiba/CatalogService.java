@@ -9,7 +9,7 @@ class CatalogService {
  final HorseRepository horses; final RaceRepository races; final EntryRepository entries;
  CatalogService(HorseRepository h,RaceRepository r,EntryRepository e) { horses=h; races=r; entries=e; }
  record HorseRef(Long id,String name) {}
- record HorseView(Long id,String name,String sex,LocalDate birthDate,String color,String trainer,HorseRef sire,HorseRef dam,Long trainerId,String kraId) {}
+ record HorseView(Long id,String name,String sex,LocalDate birthDate,String color,String trainer,HorseRef sire,HorseRef dam,Long trainerId,String kraId,String source,String nameEn,String origin,String breed,String kraRank,String ownerName,boolean ancestorOnly,com.fasterxml.jackson.databind.JsonNode profile,java.time.Instant profileAsOf) {}
  record RaceView(Long id,String name,LocalDate raceDate,String venue,int distance,String surface,java.time.LocalTime startTime,String raceClass,String weather,String going,String status,String source) {}
  record EntryView(Long horseId,String horseName,Long raceId,String raceName,LocalDate raceDate,int number,String jockey,Integer finishPosition,java.math.BigDecimal timeSeconds,Integer popularityRank,java.math.BigDecimal winOdds,String oddsSource,java.time.Instant oddsAsOf,Integer gate,java.math.BigDecimal carriedWeight,Integer bodyWeight,Integer weightChange,String status,Long jockeyId,Long trainerId,String trainerName,Integer oddsRank,Boolean oddsRankShared,Integer oddsRankField,Integer oddsRankTotal) {
   EntryView withOddsRank(OddsRank r){return r==null?this:new EntryView(horseId,horseName,raceId,raceName,raceDate,number,jockey,finishPosition,timeSeconds,popularityRank,winOdds,oddsSource,oddsAsOf,gate,carriedWeight,bodyWeight,weightChange,status,jockeyId,trainerId,trainerName,r.rank(),r.shared(),r.field(),r.total());}
@@ -21,7 +21,10 @@ class CatalogService {
  Horse requireHorse(Long id) { return horses.findById(id).orElseThrow(()->new ApiException(404,"경주마를 찾을 수 없습니다.")); }
  Race requireRace(Long id) { return races.findById(id).orElseThrow(()->new ApiException(404,"경주를 찾을 수 없습니다.")); }
  HorseRef ref(Horse h) { if(h==null) return null; h=org.hibernate.Hibernate.unproxy(h,Horse.class); return new HorseRef(h.id,h.name); }
- HorseView view(Horse h) { h=org.hibernate.Hibernate.unproxy(h,Horse.class); return new HorseView(h.id,h.name,h.sex,h.birthDate,h.color,h.trainer,ref(h.sire),ref(h.dam),h.trainerId,h.kraId); }
+ static final com.fasterxml.jackson.databind.ObjectMapper JSON=new com.fasterxml.jackson.databind.ObjectMapper();
+ /** DB의 JSON 열은 문자열로 읽히므로 응답에서는 객체로 풀어 줍니다. 잘못된 JSON은 null로 처리해 화면이 중단되지 않게 합니다. */
+ static com.fasterxml.jackson.databind.JsonNode json(String raw) { try { return raw==null?null:JSON.readTree(raw); } catch(java.io.IOException e) { return null; } }
+ HorseView view(Horse h) { h=org.hibernate.Hibernate.unproxy(h,Horse.class); return new HorseView(h.id,h.name,h.sex,h.birthDate,h.color,h.trainer,ref(h.sire),ref(h.dam),h.trainerId,h.kraId,h.source,h.nameEn,h.origin,h.breed,h.kraRank,h.ownerName,h.ancestorKey!=null,json(h.profileJson),h.profileAsOf); }
  RaceView view(Race r) { r=org.hibernate.Hibernate.unproxy(r,Race.class); return new RaceView(r.id,r.name,r.raceDate,r.venue,r.distance,r.surface,r.startTime,r.raceClass,r.weather,r.going,r.status,r.source); }
  EntryView view(Entry e) { Horse h=org.hibernate.Hibernate.unproxy(e.horse,Horse.class); Race r=org.hibernate.Hibernate.unproxy(e.race,Race.class); return new EntryView(h.id,h.name,r.id,r.name,r.raceDate,e.number,e.jockey,e.finishPosition,e.timeSeconds,e.popularityRank,e.winOdds,e.oddsSource,e.oddsAsOf,e.gate,e.carriedWeight,e.bodyWeight,e.weightChange,e.status,e.jockeyId,e.trainerId,e.trainerName,null,null,null,null); }
  PageView<HorseView> horses(String q,int page,String sort,String direction) {

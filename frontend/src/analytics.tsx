@@ -67,7 +67,7 @@ export function HorseComparison(){
   <Loading error={result.error} loading={ids.length>0&&!result.data}/>
   {!ids.length&&<p className="notice">비교할 경주마를 선택하세요.</p>}
   {ids.length>0&&result.data&&<><p className="small-note">집계 기준일: {result.data.asOfDate} (한국·일본 시간)</p><div className="comparison-grid">{result.data.horses.map(({horse,statistics})=><article className="comparison-card" key={horse.id}>
-   <h2><Link to={'/horses/'+horse.id}>{horse.name} ↗</Link></h2><p className="small-note">{horse.sex} · {horse.birthDate} 출생 · {horse.trainer}</p><StatisticsView statistics={statistics}/>
+   <h2><Link to={'/horses/'+horse.id}>{horse.name} ↗</Link></h2><p className="small-note">{horse.sex} · {horse.birthDate?horse.birthDate+' 출생':'생년월일 미제공'} · {horse.trainer}</p><StatisticsView statistics={statistics}/>
   </article>)}</div></>}
  </section>;
 }

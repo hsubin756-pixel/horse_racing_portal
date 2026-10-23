@@ -122,3 +122,7 @@
 - EntryView: `trainerId`, `trainerName`(경주 당시 조교사, 없으면 null) 추가. `popularityRank`와 `winOdds`는 독립적으로 null일 수 있으며 하나라도 있으면 출처·시각은 필수입니다.
 - 구간 API Run: `markers` 배열 추가. 각 항목은 `corner`, `position`, `cumulativeSeconds`, `source`입니다. 거리 좌표를 갖는 `points`와 구분합니다.
 - 한국마사회 실제 경주의 합성 모델 예측 요청은 400입니다. 가져온 원본 레코드의 관리자 수정/삭제도 400으로 거부합니다.
+
+## 한국마사회 기준 자료 필드 — 2026-10-23
+
+`GET /api/horses/{id}`(목록 포함)의 HorseView에 `source`, `nameEn`, `origin`, `breed`, `kraRank`, `ownerName`, `ancestorOnly`(이름만 제공된 조상이면 true), `profile`(제공기관 집계 전적 객체 또는 null), `profileAsOf`를 추가했습니다. `birthDate`는 조상 행에서 null일 수 있습니다. `GET /api/people/{id}`의 `person`에는 `kra_id`, `debut_date`, `retired_date`, `affiliation`, `profile_json`(문자열), `profile_as_of`가 그대로 포함됩니다. 자료는 `scripts/kra_master.py`로 반영하며 웹 관리자 양식에서는 `source LIKE 'KRA_%'`인 말을 수정할 수 없습니다.

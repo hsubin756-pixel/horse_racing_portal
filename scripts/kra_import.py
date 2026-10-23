@@ -206,13 +206,18 @@ def sql_plan(races):
         'START TRANSACTION;']
     for race in races:
         key, fingerprint = literal(race['key']), literal(race['fingerprint'])
+        # A race pre-registered from the plan API (SCHEDULED, no entries, no result import) is upgraded in place so saved
+        # favorites keep their id; any other existing race must carry the identical result fingerprint.
         statements += [f'SET @rid=(SELECT id FROM race WHERE kra_id={key});',
-            'SET @new_race=(@rid IS NULL);',
+            "SET @planned=(SELECT COUNT(*) FROM race r WHERE r.id=@rid AND r.status='SCHEDULED' AND NOT EXISTS(SELECT 1 FROM entry e WHERE e.race_id=r.id) AND NOT EXISTS(SELECT 1 FROM kra_race_import k WHERE k.race_id=r.id));",
+            'SET @new_race=(@rid IS NULL OR @planned=1);',
             f'INSERT INTO kra_assertion VALUES (IF(@new_race=1,1,EXISTS(SELECT 1 FROM kra_race_import WHERE race_id=@rid AND fingerprint={fingerprint})));',
             insert('race', {'name': race['name'], 'race_date': race['date'], 'venue': '서울',
                 'distance': race['distance'], 'surface': '더트', 'race_class': race['class'],
                 'weather': race['weather'], 'going': race['going'], 'status': 'OFFICIAL',
-                'source': SOURCE, 'kra_id': race['key']}),
+                'source': SOURCE, 'kra_id': race['key']}, '@rid IS NULL'),
+            'UPDATE race SET ' + ','.join(f'{k}={literal(v)}' for k, v in {'name': race['name'], 'race_date': race['date'], 'distance': race['distance'],
+                'race_class': race['class'], 'weather': race['weather'], 'going': race['going'], 'status': 'OFFICIAL', 'source': SOURCE}.items()) + ' WHERE id=@rid AND @planned=1;',
             f'SET @rid=(SELECT id FROM race WHERE kra_id={key});']
         for entry in race['entries']:
             for kind, role, var in [('JOCKEY', 'jockey', '@jid'), ('TRAINER', 'trainer', '@tid')]:

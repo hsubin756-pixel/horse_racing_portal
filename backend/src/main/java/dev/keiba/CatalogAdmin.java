@@ -126,7 +126,8 @@ class CatalogAdmin {
  void visit(long id,Map<Long,List<Long>> parents,Set<Long> path,Set<Long> done){if(done.contains(id))return;if(!path.add(id))bad("순환 혈통");for(long p:parents.getOrDefault(id,List.of()))visit(p,parents,path,done);path.remove(id);done.add(id);}
  void editable(String kind,long id){
   String sql=switch(kind){
-   case "horses","races","people"->"SELECT COUNT(*) FROM "+table(kind)+" WHERE id=? AND kra_id IS NOT NULL";
+   case "horses"->"SELECT COUNT(*) FROM horse WHERE id=? AND (kra_id IS NOT NULL OR source LIKE 'KRA_%')";
+   case "races","people"->"SELECT COUNT(*) FROM "+table(kind)+" WHERE id=? AND kra_id IS NOT NULL";
    case "entries"->"SELECT COUNT(*) FROM entry e JOIN race r ON r.id=e.race_id WHERE e.id=? AND r.kra_id IS NOT NULL";
    case "sectionals"->"SELECT COUNT(*) FROM sectional s JOIN entry e ON e.id=s.entry_id JOIN race r ON r.id=e.race_id WHERE s.id=? AND r.kra_id IS NOT NULL";
    case "payouts"->"SELECT COUNT(*) FROM payout p JOIN race r ON r.id=p.race_id WHERE p.id=? AND r.kra_id IS NOT NULL";

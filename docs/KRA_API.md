@@ -132,3 +132,19 @@ python3 scripts/kra_catalog.py fetch jockey-info meet=1 --pages 3
 - `probe`는 1회, `fetch`는 최대 `--pages`회(기본 10, 상한 50) 호출하며 페이지 사이 0.25초 대기합니다. 개발계정의 API별 트래픽 한도를 확인하세요.
 - `birthday`가 `********`로 오면 마스킹으로 표시하며 추정하지 않습니다. 인증키는 출력·저장 파일에 포함하지 않습니다.
 - 검증: `python3 -m unittest discover -s tests -p 'test_kra_catalog.py' -v` (오프라인 6개).
+
+## 말 프로필·3대 혈통·기수/조교사·예정 경주 반영 (kra_master.py)
+
+V10 적용 후(최신 코드 `./scripts/up.sh`) 사용합니다. 모든 명령은 먼저 미리보기를 출력하고 `--apply`를 붙여야 DB를 바꿉니다. 원본은 `.runtime/kra/<api>-…/`에 보존되고 `kra_master_import`에 지문과 함께 기록됩니다.
+
+```bash
+python3 scripts/kra_master.py horses            # DB에 있는 한국마사회 말 전체 (말당 API 3회)
+python3 scripts/kra_master.py horses --hr-no 0038599 --apply
+python3 scripts/kra_master.py people --meet 1 --apply   # 서울 현역 기수·조교사 (약 7+1회 호출)
+python3 scripts/kra_master.py plans --meet 1 --apply    # 오늘 이후 한 달 예정 경주
+```
+
+- `horses`: 경주마 상세정보(API8_2)로 이름·성별·생년월일·산지·등급·마주·조교사·부모 번호를, 마필종합 상세정보(API42_1)로 모색·품종·영문명을, 선대마정보(API47)로 2~3대 조상 이름을 받습니다. 부모는 번호로, 조부모 이상은 이름(`ancestor_key`)으로 저장하며 4~5대는 원본 JSON에만 남깁니다. 실제 응답에서 `f1`=부마(API8_2의 `faHrName`과 일치)임을 확인했습니다. 이미 부모가 연결된 조상의 연결은 덮어쓰지 않습니다.
+- `people`: 기수 상세정보(API12_1)·조교사 상세정보(API19_1)의 전원을 번호 기준으로 등록·갱신합니다. 생년월일은 저장하지 않고 데뷔·은퇴·소속조·집계 성적만 보관합니다. 경주 결과로 만들어진 인물과 번호가 같으면 같은 행을 갱신합니다.
+- `plans`: 경주계획표(API72_2)로 예정 경주를 `SCHEDULED`로 등록합니다(출전마 명단은 승인 API에 없어 비어 있음). 이후 같은 경주의 결과를 `kra_import.py --apply`로 반영하면 같은 행이 `OFFICIAL`로 바뀌고 관심 경주가 유지됩니다. 확정된 경주는 계획 재실행으로 바뀌지 않습니다.
+- 검증: `python3 -m unittest discover -s tests -p 'test_kra_master.py' -v`(오프라인 8개), 서비스 실행 중 `python3 -m unittest discover -s tests -p 'test_kra_master_integration.py' -v`(실제 DB/API 3개, 제공기관 호출 없음).
