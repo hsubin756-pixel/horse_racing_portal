@@ -55,3 +55,16 @@ python3 scripts/kra_ml_dataset.py export --meet 1 --output .runtime/kra/ml/seoul
 .runtime/ml-venv/bin/python ml/evaluate_extended.py .runtime/kra/ml/seoul-2025.csv --provenance '…' --output .runtime/kra/ml/report-meet1-extended.json
 .runtime/ml-venv/bin/python -m unittest ml.test_evaluation_extended   # 또는 cd ml && python -m unittest test_evaluation_extended
 ```
+
+### 서비스 연결: 실제 데이터 실험 모델 (2026-10-23)
+- `ml/train_real.py`가 `ml/data/*.csv`로 시장 정보 없는 입력 집합(base+connections+physical)을 학습해 `real-model.joblib`, `real-history.json`(마번별 착순·기수/조교사별 3위 이내 기록, 학습 마감일까지), `real-model-report.json`(시간순 홀드아웃 지표·시장 기준선)을 만듭니다. Docker 빌드가 `--if-present`로 실행하므로 CSV가 없으면 합성 모델만 제공됩니다.
+- FastAPI `POST /predict/real`: Spring이 경주일·거리·출주마의 마번·부담중량·마체중·게이트·생년월일·성별·기수명·조교사명을 보내면, ML 서비스가 **경주일 이전** 보존 이력만으로 입력을 만들어 점수를 냅니다. 모델이 없으면 503.
+- Spring `PredictionFeatures`/`PredictService`: `race.source`가 `KRA_`로 시작하면 실제 데이터 모델로, 그 외는 합성 모델로 보냅니다. 응답에 `info`(학습 기간·경주 수·홀드아웃 지표·시장 기준선)와 출주마별 `knownStarts`(보존 전적 수)가 추가됩니다. 예측 화면은 모델 종류에 따라 안내와 지표 표를 다르게 보여 줍니다.
+- 한계: 이력은 학습 마감일에 고정되므로 새 결과를 반영하려면 CSV를 갱신하고 이미지를 다시 빌드해야 합니다. 보정·수익성 검증 없음. 서울 1년 자료라 다른 경마장·연도에서의 성능은 확인되지 않았습니다.
+
+데이터 반영 절차:
+```bash
+cp .runtime/kra/ml/seoul-2025.csv ml/data/seoul-2025.csv   # PROVENANCE.md 의 기간을 맞춰 갱신
+./scripts/up.sh                                              # ML 이미지 재빌드 시 train_real.py 실행
+curl -s http://127.0.0.1:8000/health                         # realDataModel 에 cutoffDate 가 보이면 준비됨
+```

@@ -17,7 +17,10 @@ test('imported KRA-shaped records show provenance, independent odds, sectionals 
   await expect(page.locator('.run-detail')).toContainText('39.30초');
   await expect(page.getByRole('region',{name:'코너별 통과 기록'})).toContainText('24.30초');
   await expect(page.getByRole('region',{name:'코너별 통과 기록'}).locator('tbody tr')).toHaveCount(2);
-  await expect(page.getByRole('link',{name:'실험 모델 예측 ↗'})).toHaveCount(0);
+  await page.getByRole('link',{name:'실험 모델 예측 ↗'}).click();
+  await expect(page.locator('.eyebrow')).toContainText('KRA OPEN DATA MODEL');
+  await expect(page.locator('.notice').first()).toContainText('시장 정보는 입력에 넣지 않았고');
+  await page.goBack();
   await expect(page.getByText('100엔당',{exact:false})).toHaveCount(0);
   await page.locator('.entry-table tbody tr').first().getByRole('link',{name:'가상 검증 조교사 ↗'}).click();
   await expect(page.locator('.facts')).toContainText('2회');

@@ -126,3 +126,6 @@
 ## 한국마사회 기준 자료 필드 — 2026-10-23
 
 `GET /api/horses/{id}`(목록 포함)의 HorseView에 `source`, `nameEn`, `origin`, `breed`, `kraRank`, `ownerName`, `ancestorOnly`(이름만 제공된 조상이면 true), `profile`(제공기관 집계 전적 객체 또는 null), `profileAsOf`를 추가했습니다. `birthDate`는 조상 행에서 null일 수 있습니다. `GET /api/people/{id}`의 `person`에는 `kra_id`, `debut_date`, `retired_date`, `affiliation`, `profile_json`(문자열), `profile_as_of`가 그대로 포함됩니다. 자료는 `scripts/kra_master.py`로 반영하며 웹 관리자 양식에서는 `source LIKE 'KRA_%'`인 말을 수정할 수 없습니다.
+
+## 예측 응답 확장 — 2026-10-23
+`POST /api/races/{id}/prediction`은 경주 출처에 따라 모델을 고릅니다. `race.source`가 `KRA_`로 시작하면 `modelKind=real_data_experiment`이며 `info{firstDate,cutoffDate,trainingRaces,holdoutMetrics,marketBaselineMetrics}`와 각 점수의 `knownStarts`(ML 서비스가 보존한 해당 말의 경주일 이전 전적 수)가 포함됩니다. 실제 데이터 모델이 준비되지 않았으면 503과 안내 문구를 반환합니다. 가상 경주는 기존처럼 `synthetic_experiment`이고 `info`는 null, `knownStarts`는 null입니다. 한국마사회 경주에 대한 예측 차단은 해제되었으며 출주마에 마번이 없으면 400입니다.

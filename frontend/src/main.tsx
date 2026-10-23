@@ -76,7 +76,7 @@ function RacePage() {
    <h1>{data.race.name}</h1>
    <p className="sub">{data.race.venue} · {data.race.surface} {data.race.distance}m</p>
    <RaceFacts race={data.race}/><NoteLink race={data.race.id}/><div className="section-title"><h2>출주마 및 착순 결과</h2>
-    {data.race.source!=='KRA_API214_1'&&<Link className="button secondary" to={"/races/"+id+"/prediction"}>실험 모델 예측 ↗</Link>}
+    <Link className="button secondary" to={"/races/"+id+"/prediction"}>실험 모델 예측 ↗</Link>
    </div>
    <RaceWatchButton key={id} id={Number(id)}/><div className="entry-controls"><label htmlFor="entry-sort">출주마 정렬</label>
     <select id="entry-sort" value={sort} onChange={e=>setSort(e.target.value as typeof sort)}>
