@@ -152,3 +152,8 @@ JWT 만료 필드가 없는 서명 토큰의 허용 가능성을 차단했습니
 - 클라우드에서 실행한 오프라인 검사: `test_kra.py` 8, `test_kra_import.py` 6(예정 경주 승격 SQL 포함), `test_kra_catalog.py` 6, `test_kra_master.py` 8 — 모두 통과. 프론트엔드 `tsc`·Vite build 통과.
 - 실제 응답 확인(사용자 보고, 2026-10-23): 경주마 상세/마필종합/선대마/개체식별, 기수/조교사 상세, 통산경주기록, 경주계획표, AI학습용 경주계획·결과, 요약성적표 호출 성공. 선대마정보 `f1`=부마 확인. 혈통정보기본은 해당 말 0건.
 - 미실행: Gradle 빌드·JUnit, V10 마이그레이션 적용, `test_kra_master_integration.py`(실제 DB/API 3개), Chromium. 실행 후 결과를 이 절에 기록합니다. 실제 API 전체 반영(`horses`/`people`/`plans --apply`)의 결과도 별도 기록합니다.
+
+## 기준 자료 반영 — 사용자 PC 검증 결과 (2026-10-23, 사용자 보고)
+- `./scripts/gradle.sh test bootJar` 성공, `./scripts/up.sh`로 V10 적용 및 전체 서비스 준비 확인. `test_kra_master.py` 8개 OK. `test_kra_master_integration.py` 첫 실행은 신규 판정 오류와 정리 SQL의 MySQL 제한(같은 테이블 갱신)으로 실패 → 수정 후 **3개 OK**. 첫 실행이 남긴 가상 자료는 `--purge-leftovers`로 정리했습니다.
+- 실제 반영: `horses --apply` 14두 갱신(API 42회), `people --meet 1 --apply` 신규 487명·갱신 24명(145행 건너뜀: 기수번호 미부여), `plans --meet 1 --apply` 신규 21건. 반영 중 오류 없음. 브라우저 화면 확인은 사용자에게 요청한 상태입니다.
+- 미검증: Chromium 시나리오 재실행, 다른 경마장(제주·부산경남) 반영, 대량 말 프로필(200두 초과)과 호출 한도 동작.
