@@ -93,7 +93,7 @@ python3 scripts/kra.py check --meet 1 --date 20220220 --race 1
 
 OpenAPI는 실행 서버의 `/v3/api-docs`, Swagger UI는 `/swagger-ui/index.html`입니다. 프론트 프록시는 `/api`만 전달하므로 문서는 API 포트에서 확인합니다.
 
-예측 모델의 실제 경마 성능은 검증되지 않았습니다. [모델 보고서](ml/model-report.json)의 합성 실험 수치를 실제 정확도로 인용하지 마세요. 현재 검증 범위와 제한은 TEST_REPORT.md에 기록합니다.
+서비스에 연결된 예측 모델은 합성 실험 모델이며 실제 경마 성능은 검증되지 않았습니다. [모델 보고서](ml/model-report.json)의 합성 실험 수치를 실제 정확도로 인용하지 마세요. 별도로 한국마사회 공공데이터(API155, 2025년 서울 833경주)로 같은 구조의 모델을 오프라인 평가한 결과(홀드아웃 ROC-AUC 0.686, 상위 3두 recall 0.466)는 TEST_REPORT.md와 docs/ML_DATA.md에 기록했고 서비스에는 반영하지 않았습니다. 현재 검증 범위와 제한은 TEST_REPORT.md에 기록합니다.
 
 GitHub `main`에 소스가 게시되어 있습니다. [Actions 실행 목록](https://github.com/hsubin756-pixel/horse_racing_portal/actions)에서 원격 CI 결과를 확인할 수 있습니다. 이 환경에서는 GitHub API 접근 제한으로 원격 CI 성공 여부를 확인하지 못했습니다.
 
