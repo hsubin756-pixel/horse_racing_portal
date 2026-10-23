@@ -8,6 +8,8 @@ public class Entry {
  int number;
  String jockey;
  Long jockeyId;
+ Long trainerId;
+ String trainerName;
  Integer finishPosition;
  java.math.BigDecimal timeSeconds;
  Integer popularityRank;

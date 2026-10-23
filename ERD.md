@@ -45,3 +45,10 @@ V5의 `race_favorite`는 회원·경주 FK와 `(member_id,race_id)` UNIQUE를 �
 V6는 출마표 상세·경주/출전 상태·revision·관리자 권한과 sectional/payout/catalog_audit를 추가합니다. sectional은 `(entry_id,distance)`, payout은 `(race_id,market,combination)` UNIQUE입니다. V8은 환급 상태별 필수값의 NULL 제약을 보강합니다.
 
 V7은 기수/조교사 person ID와 FK, 회원별 personal_note와 site_notification을 추가합니다. 메모는 말 또는 경주 하나를 대상으로 하고 회원/대상별 UNIQUE입니다. 알림은 회원/경주/개최일별 UNIQUE이며 취소·삭제 없이 읽음 상태를 관리합니다. 관리자 수정은 revision과 잠금을 사용하며 자료 변경과 감사 이력을 같은 transaction에 기록합니다.
+
+## V9 한국마사회 자료 식별과 보존
+- `horse.kra_id`: nullable 고유 문자열. `person`은 `(kind,kra_id)` 고유. `race.kra_id`는 경마장번호·경주일·경주번호를 결합한 고유 문자열입니다. 기존 로컬 ID와 합성 자료를 보존합니다.
+- `entry.trainer_id/trainer_name`: 경주 당시 담당자. 기존 자료에서는 null이고 현재 말 담당자로 집계합니다.
+- `sectional_marker(entry_id,marker)` PK: 코너 번호(1~4), 통과 순위, 누적 시간, 출처. `entry` FK이며 거리 좌표가 있는 `sectional`과 구분합니다.
+- `kra_race_import.race_id` PK/FK: 원본 JSON, SHA-256 지문, 수집/반영 시각. 기존 경주의 변경 원본을 자동 덮어쓰지 않습니다.
+- 인기 순위와 단승 배당은 각각 선택값입니다. 둘 중 하나가 있으면 출처와 시각이 필수입니다.

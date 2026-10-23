@@ -11,7 +11,8 @@ class RacingInsights {
  final JdbcTemplate db;final CatalogService catalog;final Clock clock;
  RacingInsights(JdbcTemplate db,CatalogService catalog,Clock clock){this.db=db;this.catalog=catalog;this.clock=clock;}
  record Point(int distance,Integer position,Double cumulativeSeconds,Double segmentSeconds,String source){}
- record Run(long raceId,String raceName,LocalDate raceDate,int distance,long horseId,String horseName,int number,int fieldSize,Integer finishPosition,String style,Double last600,List<Point> points){}
+ record Marker(int corner,Integer position,Double cumulativeSeconds,String source){}
+ record Run(long raceId,String raceName,LocalDate raceDate,int distance,long horseId,String horseName,int number,int fieldSize,Integer finishPosition,String style,Double last600,List<Point> points,List<Marker> markers){}
  record Style(long horseId,String style,int samples,int completedStarts,Map<String,Long> distribution,List<Run> runs,String explanation){}
  static String classify(Integer position,int fieldSize){
   if(position==null||fieldSize<2||position<1||position>fieldSize)return "판단 보류";
@@ -25,6 +26,7 @@ class RacingInsights {
   if(rows.isEmpty())return List.of();
   var ids=rows.stream().map(r->r.get("id")).toList();
   var all=db.queryForList("SELECT * FROM sectional WHERE entry_id IN ("+String.join(",",Collections.nCopies(ids.size(),"?"))+") ORDER BY distance",ids.toArray());
+  var markers=db.queryForList("SELECT * FROM sectional_marker WHERE entry_id IN ("+String.join(",",Collections.nCopies(ids.size(),"?"))+") ORDER BY marker",ids.toArray());
   return rows.stream().map(row->{
    var points=new ArrayList<Point>();Double previous=0.0;
    for(var p:all){if(((Number)p.get("entry_id")).longValue()!=((Number)row.get("id")).longValue())continue;
@@ -37,7 +39,7 @@ class RacingInsights {
    Double at600=points.stream().filter(p->p.distance()==distance-600).map(Point::cumulativeSeconds).filter(Objects::nonNull).findFirst().orElse(null);
    Double atFinish=points.stream().filter(p->p.distance()==distance).map(Point::cumulativeSeconds).filter(Objects::nonNull).findFirst().orElse(null);
    boolean official="OFFICIAL".equals(row.get("race_status"))&&"FINISHED".equals(row.get("entry_status"))&&!((java.sql.Date)row.get("race_date")).toLocalDate().isAfter(LocalDate.now(clock));
-   return new Run(((Number)row.get("race_id")).longValue(),(String)row.get("race_name"),((java.sql.Date)row.get("race_date")).toLocalDate(),distance,((Number)row.get("horse_id")).longValue(),(String)row.get("horse_name"),((Number)row.get("number")).intValue(),field,integer(row.get("finish_position")),official?classify(early,field):"판단 보류",at600==null||atFinish==null?null:Math.round((atFinish-at600)*100.0)/100.0,List.copyOf(points));
+   return new Run(((Number)row.get("race_id")).longValue(),(String)row.get("race_name"),((java.sql.Date)row.get("race_date")).toLocalDate(),distance,((Number)row.get("horse_id")).longValue(),(String)row.get("horse_name"),((Number)row.get("number")).intValue(),field,integer(row.get("finish_position")),official?classify(early,field):"판단 보류",at600==null||atFinish==null?null:Math.round((atFinish-at600)*100.0)/100.0,List.copyOf(points),markers.stream().filter(m->((Number)m.get("entry_id")).longValue()==((Number)row.get("id")).longValue()).map(m->new Marker(((Number)m.get("marker")).intValue(),integer(m.get("position")),num(m.get("cumulative_seconds")),(String)m.get("source"))).toList());
   }).toList();
  }
  static Integer integer(Object n){return n==null?null:((Number)n).intValue();}

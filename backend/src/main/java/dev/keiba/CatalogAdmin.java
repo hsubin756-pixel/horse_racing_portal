@@ -25,13 +25,14 @@ class CatalogAdmin {
   "people","kind,name,biography,source");
  void authorize(Long user){if(user==null||!Boolean.TRUE.equals(db.queryForObject("SELECT is_admin FROM member WHERE id=?",Boolean.class,user)))throw new ApiException(403,"관리자 권한이 필요합니다.");}
  String table(String kind){if(kind==null)bad("자료 종류");String t=TABLES.get(kind);if(t==null)throw new ApiException(400,"자료 종류를 확인하세요.");return t;}
- List<Map<String,Object>> list(Long user,String kind,int page){authorize(user);if(page<0||page>10000)bad("페이지");return db.queryForList("SELECT * FROM "+table(kind)+" ORDER BY id DESC LIMIT 50 OFFSET ?",page*50);}
+ List<Map<String,Object>> list(Long user,String kind,int page){authorize(user);if(page<0||page>10000)bad("페이지");return db.queryForList("SELECT id,revision,"+FIELDS.get(kind)+" FROM "+table(kind)+" ORDER BY id DESC LIMIT 50 OFFSET ?",page*50);}
  List<Map<String,Object>> audit(Long user){authorize(user);return db.queryForList("SELECT * FROM catalog_audit ORDER BY id DESC LIMIT 100");}
  void remove(Long user,String kind,long id,long revision){
   authorize(user);if(!Set.of("sectionals","payouts").contains(kind))bad("삭제 가능한 자료 종류");
   db.queryForList("SELECT id FROM member WHERE is_admin=TRUE ORDER BY id FOR UPDATE");
   var rows=db.queryForList("SELECT * FROM "+table(kind)+" WHERE id=? FOR UPDATE",id);
   if(rows.isEmpty())throw new ApiException(404,"삭제할 자료가 없습니다.");var before=rows.getFirst();
+  editable(kind,id);
   if(n(before,"revision")!=revision)throw new ApiException(409,"다른 변경이 있습니다. 자료를 다시 불러오세요.");
   db.update("DELETE FROM "+table(kind)+" WHERE id=?",id);
   try{db.update("INSERT INTO catalog_audit(member_id,kind,record_id,before_json,after_json) VALUES (?,?,?,?,?)",user,kind,id,json.writeValueAsString(before),"{\"deleted\":true}");}catch(com.fasterxml.jackson.core.JsonProcessingException e){throw new IllegalStateException(e);}
@@ -69,7 +70,8 @@ class CatalogAdmin {
    case "entries"->{required(row,"race_id","horse_id","number","jockey","status");ref(row,"race_id","race");ref(row,"horse_id","horse");ref(row,"jockey_id","person");person(row,"jockey_id","JOCKEY","jockey");range(row,"number",1,30);range(row,"gate",1,30);range(row,"carried_weight",30,80);range(row,"body_weight",200,800);range(row,"weight_change",-100,100);range(row,"finish_position",1,30);range(row,"time_seconds",1,9999);range(row,"popularity_rank",1,30);range(row,"win_odds",1,999999);choice(row,"status","DECLARED","FINISHED","SCRATCHED","DNF","DISQUALIFIED");
     if(str(row,"status").equals("FINISHED"))required(row,"finish_position");else if(row.get("finish_position")!=null)bad("미완주/미출전 말의 착순");
     if(Set.of("DECLARED","SCRATCHED").contains(str(row,"status"))&&row.get("time_seconds")!=null)bad("미출전 말의 기록");
-    long supplied=List.of("popularity_rank","win_odds","odds_source","odds_as_of").stream().filter(f->row.get(f)!=null).count();if(supplied!=0&&supplied!=4)bad("인기/배당/출처/시각은 함께 입력");
+    boolean hasOdds=row.get("popularity_rank")!=null||row.get("win_odds")!=null;
+    if(hasOdds){required(row,"odds_source","odds_as_of");}else if(row.get("odds_source")!=null||row.get("odds_as_of")!=null)bad("인기 또는 배당 없이 출처/시각만 입력할 수 없습니다");
    }
    case "sectionals"->{required(row,"entry_id","distance","source");ref(row,"entry_id","entry");range(row,"distance",1,10000);range(row,"position",1,30);range(row,"cumulative_seconds",.01,99999);if(row.get("position")==null&&row.get("cumulative_seconds")==null)bad("순위 또는 누적 시간");}
    case "payouts"->{required(row,"race_id","market","combination","status","source","as_of");ref(row,"race_id","race");choice(row,"market","WIN","PLACE","QUINELLA","EXACTA","TRIO","TRIFECTA");choice(row,"status","OPEN","FINAL","REFUND");
@@ -98,6 +100,7 @@ class CatalogAdmin {
   db.queryForList("SELECT id FROM member WHERE is_admin=TRUE ORDER BY id FOR UPDATE");
   for(var row:prepared){long id=n(row,"id");Map<String,Object> before=null;
    if(id>0){var found=db.queryForList("SELECT * FROM "+table+" WHERE id=? FOR UPDATE",id);if(found.isEmpty())throw new ApiException(404,"수정할 자료가 없습니다.");before=found.getFirst();if(n(before,"revision")!=n(row,"revision"))throw new ApiException(409,"다른 변경이 있습니다. 자료를 다시 불러오세요.");
+    editable(kind,id);
     if(kind.equals("entries")&&(n(before,"race_id")!=n(row,"race_id")||n(before,"horse_id")!=n(row,"horse_id")))bad("기존 출전의 경주/말 변경");
     if(kind.equals("sectionals")&&n(before,"entry_id")!=n(row,"entry_id"))bad("기존 구간의 출전 변경");
     if(kind.equals("payouts")&&n(before,"race_id")!=n(row,"race_id"))bad("기존 환급표의 경주 변경");
@@ -121,7 +124,18 @@ class CatalogAdmin {
   var done=new HashSet<Long>();for(long id:parents.keySet())visit(id,parents,new HashSet<>(),done);
  }
  void visit(long id,Map<Long,List<Long>> parents,Set<Long> path,Set<Long> done){if(done.contains(id))return;if(!path.add(id))bad("순환 혈통");for(long p:parents.getOrDefault(id,List.of()))visit(p,parents,path,done);path.remove(id);done.add(id);}
+ void editable(String kind,long id){
+  String sql=switch(kind){
+   case "horses","races","people"->"SELECT COUNT(*) FROM "+table(kind)+" WHERE id=? AND kra_id IS NOT NULL";
+   case "entries"->"SELECT COUNT(*) FROM entry e JOIN race r ON r.id=e.race_id WHERE e.id=? AND r.kra_id IS NOT NULL";
+   case "sectionals"->"SELECT COUNT(*) FROM sectional s JOIN entry e ON e.id=s.entry_id JOIN race r ON r.id=e.race_id WHERE s.id=? AND r.kra_id IS NOT NULL";
+   case "payouts"->"SELECT COUNT(*) FROM payout p JOIN race r ON r.id=p.race_id WHERE p.id=? AND r.kra_id IS NOT NULL";
+   default->throw new IllegalArgumentException();
+  };
+  if(db.queryForObject(sql,Long.class,id)>0)bad("한국마사회 원본 자료는 관리자 양식으로 수정할 수 없습니다");
+ }
  void validateRace(long id){
+  editable("races",id);
   var race=db.queryForMap("SELECT * FROM race WHERE id=?",id);var entries=db.queryForList("SELECT * FROM entry WHERE race_id=?",id);
   long field=entries.stream().filter(e->!"SCRATCHED".equals(e.get("status"))).count();
   if("OFFICIAL".equals(race.get("status"))&&entries.stream().anyMatch(e->"DECLARED".equals(e.get("status"))))bad("결과 확정 전 미확정 출전 상태");

@@ -101,3 +101,11 @@
 | GET /api/admin/audit | 최근 100개 변경 전후 값·작성자·시각 |
 
 입력 필드는 각 자료의 DB 열 이름을 사용합니다. `id`가 없으면 새 자료, 있으면 해당 행의 `revision`을 반드시 보내야 합니다. 오래된 버전은 409이며 연관 자료의 정합성 실패는 400으로 전체 롤백합니다. CSV는 UTF-8 200KB/100행 제한, 따옴표·쉼표·줄바꿈을 지원합니다. 출처/시각과 지원 필드 목록은 관리자 화면 및 docs/RACE_FEATURES.md에 있습니다. DB 충돌(예: 중복 조합·같은 말 출전)은 409입니다.
+
+## 한국마사회 서울 결과 최초 반영
+웹 API에 새 쓰기 엔드포인트를 공개하지 않습니다. 로컬 소유자가 `scripts/kra_import.py`로 검증/반영합니다. 사용법과 지원 범위는 [KRA_API.md](docs/KRA_API.md)를 참고하세요.
+
+- HorseView: `kraId`(문자열 또는 null) 추가.
+- EntryView: `trainerId`, `trainerName`(경주 당시 조교사, 없으면 null) 추가. `popularityRank`와 `winOdds`는 독립적으로 null일 수 있으며 하나라도 있으면 출처·시각은 필수입니다.
+- 구간 API Run: `markers` 배열 추가. 각 항목은 `corner`, `position`, `cumulativeSeconds`, `source`입니다. 거리 좌표를 갖는 `points`와 구분합니다.
+- 한국마사회 실제 경주의 합성 모델 예측 요청은 400입니다. 가져온 원본 레코드의 관리자 수정/삭제도 400으로 거부합니다.

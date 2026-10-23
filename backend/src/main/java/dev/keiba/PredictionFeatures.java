@@ -10,6 +10,7 @@ class PredictionFeatures {
  record Input(Map<Long,String> names,List<PredictService.Features> horses) {}
  @Transactional(readOnly=true) Input forRace(Long raceId) {
   Race race=catalog.requireRace(raceId);
+  if("KRA_API214_1".equals(race.source))throw new ApiException(400,"한국마사회 실제 경주에는 합성 실험 모델을 적용하지 않습니다.");
   if("CANCELLED".equals(race.status))throw new ApiException(400,"취소된 경주는 예측할 수 없습니다.");
   var starters=entries.findByRaceIdOrderByNumberAsc(raceId).stream().filter(e->!Set.of("SCRATCHED","DISQUALIFIED","DNF").contains(e.status)).toList();
   if(starters.isEmpty()) throw new ApiException(400,"출주마가 없는 경주는 예측할 수 없습니다.");

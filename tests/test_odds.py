@@ -28,10 +28,17 @@ class OddsTests(unittest.TestCase):
   self.assertEqual(sorted(e['popularityRank'] for e in race['entries'] if e['popularityRank'] is not None),list(range(1,12)))
  def test_database_rejects_invalid_or_incomplete_snapshot(self):
   for assignment,constraint in (("win_odds=0",'ck_win_odds'),("popularity_rank=0",'ck_popularity'),
-   ("win_odds=NULL",'ck_odds_snapshot'),("odds_as_of=NULL",'ck_odds_snapshot'),("odds_source=' '",'ck_odds_snapshot')):
+   ("win_odds=NULL,popularity_rank=NULL",'ck_odds_snapshot'),("odds_as_of=NULL",'ck_odds_snapshot'),("odds_source=' '",'ck_odds_snapshot')):
    # Each connection rolls back on disconnect; committed fixture data is never changed.
    result=subprocess.run(['docker','compose','exec','-T','db','sh','-c',
     'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot keiba'],
     input='START TRANSACTION; UPDATE entry SET '+assignment+' WHERE race_id=1 AND number=1; ROLLBACK;',
     capture_output=True,text=True)
    self.assertNotEqual(result.returncode,0);self.assertIn(constraint,result.stderr)
+  # Popularity and win odds are independently optional, but provenance is still mandatory.
+  for assignment in ('win_odds=NULL', 'popularity_rank=NULL'):
+   result=subprocess.run(['docker','compose','exec','-T','db','sh','-c',
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot keiba'],
+    input='START TRANSACTION; UPDATE entry SET '+assignment+' WHERE race_id=1 AND number=1; ROLLBACK;',
+    capture_output=True,text=True)
+   self.assertEqual(result.returncode,0)

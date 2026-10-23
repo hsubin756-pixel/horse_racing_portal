@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 public class Horse {
  @Id @GeneratedValue(strategy=GenerationType.IDENTITY) Long id;
  @Column(nullable=false) String name;
+ String kraId;
  String sex;
  java.time.LocalDate birthDate;
  String color;

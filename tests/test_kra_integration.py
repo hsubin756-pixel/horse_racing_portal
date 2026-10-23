@@ -1,0 +1,118 @@
+"""Real MySQL/API tests with temporary, explicitly synthetic KRA-shaped records."""
+from concurrent.futures import ThreadPoolExecutor
+import copy
+import json
+import random
+import sys
+import unittest
+import uuid
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
+from backup import mysql
+import kra_import as importer
+from kra import KraError
+from test_catalog import request
+from test_kra_import import sample_rows, RETRIEVED
+
+
+class KraIntegrationTests(unittest.TestCase):
+    def setUp(self):
+        self.prefix = '98' + str(random.randint(10000, 99999))
+        self.rows = sample_rows(prefix=self.prefix)
+        self.keys = ['1:20100101:91', '1:20100101:92', '1:20100101:93', '1:20100201:91']
+        self.where = ','.join(importer.literal(k) for k in self.keys)
+        self.assertEqual(mysql(f'SELECT COUNT(*) FROM race WHERE kra_id IN ({self.where});', 'keiba').strip(), '0')
+        self.assertEqual(mysql(f"SELECT COUNT(*) FROM horse WHERE kra_id LIKE '{self.prefix}%';", 'keiba').strip(), '0')
+        self.addCleanup(self.cleanup)
+
+    def cleanup(self):
+        ids = f'SELECT id FROM race WHERE kra_id IN ({self.where})'
+        entries = f'SELECT id FROM entry WHERE race_id IN ({ids})'
+        mysql(f'DELETE FROM sectional_marker WHERE entry_id IN ({entries});'
+              f'DELETE FROM sectional WHERE entry_id IN ({entries});'
+              f'DELETE FROM entry WHERE race_id IN ({ids});'
+              f'DELETE FROM kra_race_import WHERE race_id IN ({ids});'
+              f'DELETE FROM race WHERE kra_id IN ({self.where});'
+              f"DELETE FROM horse WHERE kra_id LIKE '{self.prefix}%';"
+              f"DELETE FROM person WHERE kra_id LIKE '{self.prefix}%';", 'keiba')
+
+    def test_import_visible_api_duplicate_noop_and_original_values(self):
+        plan = importer.prepare(self.rows, RETRIEVED)
+        race_id, created = importer.apply(plan)[0]
+        self.assertEqual(created, 1)
+        self.assertEqual(importer.apply(plan), [(race_id, 0)])
+        status, race = request(f'/races/{race_id}')
+        self.assertEqual(status, 200)
+        self.assertEqual(race['race']['source'], 'KRA_API214_1')
+        self.assertEqual(len(race['entries']), 2)
+        e = race['entries'][0]
+        self.assertIsNone(e['popularityRank'])
+        self.assertEqual(e['winOdds'], 4.6)
+        self.assertIsNone(e['gate'])
+        self.assertEqual(e['trainerName'], '가상 검증 조교사')
+        self.assertEqual(request('/horses/' + str(e['horseId']))[1]['kraId'], self.rows[0]['hrNo'])
+        _, runs = request(f'/races/{race_id}/sectionals')
+        self.assertEqual(runs[0]['last600'], 39.3)
+        self.assertEqual(runs[0]['style'], '선행')
+        self.assertEqual([m['corner'] for m in runs[0]['markers']], [3, 4])
+        self.assertEqual(len(runs[0]['points']), 4)
+        self.assertEqual(request('/horses/' + str(e['horseId']) + '/running-style')[1]['style'], '판단 보류')
+        self.assertEqual(request(f'/races/{race_id}/payouts')[1], [])
+        raw = json.loads(mysql(f'SELECT raw_json FROM kra_race_import WHERE race_id={race_id};', 'keiba'))
+        self.assertEqual(raw[0]['plcOdds'], '1.7')
+
+    def test_whole_batch_rolls_back_when_existing_source_changes(self):
+        original = importer.prepare(self.rows, RETRIEVED)
+        importer.apply(original)
+        changed = copy.deepcopy(self.rows)
+        changed[0]['winOdds'] = '5.0'
+        new_rows = sample_rows(race_no=92, prefix=self.prefix)
+        combined = importer.prepare(new_rows, RETRIEVED) + importer.prepare(changed, RETRIEVED)
+        with self.assertRaises(KraError):
+            importer.apply(combined)
+        self.assertEqual(mysql("SELECT COUNT(*) FROM race WHERE kra_id='1:20100101:92';", 'keiba').strip(), '0')
+        self.assertEqual(mysql("SELECT win_odds FROM entry e JOIN race r ON r.id=e.race_id WHERE r.kra_id='1:20100101:91' AND e.number=1;", 'keiba').strip(), '4.6')
+
+    def test_concurrent_import_creates_one_race(self):
+        plan = importer.prepare(self.rows, RETRIEVED)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outputs = list(pool.map(lambda _: importer.apply(plan), range(2)))
+        self.assertEqual(sorted(output[0][1] for output in outputs), [0, 1])
+        self.assertEqual(outputs[0][0][0], outputs[1][0][0])
+        self.assertEqual(mysql(f"SELECT COUNT(*) FROM horse WHERE kra_id LIKE '{self.prefix}%';", 'keiba').strip(), '2')
+
+    def test_trainer_is_recorded_at_race_time(self):
+        race_id = importer.apply(importer.prepare(self.rows, RETRIEVED))[0][0]
+        old_id = request(f'/races/{race_id}')[1]['entries'][0]['trainerId']
+        later = sample_rows(race_date='20100201', prefix=self.prefix)
+        for row in later:
+            row['trNo'] = self.prefix + '5'
+            row['trName'] = '가상 다음 조교사'
+        later_id = importer.apply(importer.prepare(later, RETRIEVED))[0][0]
+        new_id = request(f'/races/{later_id}')[1]['entries'][0]['trainerId']
+        self.assertNotEqual(new_id, old_id)
+        self.assertEqual(request('/people/' + str(old_id))[1]['totals']['starts'], 2)
+        self.assertEqual(request('/people/' + str(new_id))[1]['totals']['starts'], 2)
+        self.assertEqual(request('/people/' + str(old_id))[1]['recent'][0]['race_id'], race_id)
+
+    def test_admin_cannot_edit_imported_source_or_run_synthetic_model(self):
+        race_id = importer.apply(importer.prepare(self.rows, RETRIEVED))[0][0]
+        email = 'kra-test-' + uuid.uuid4().hex + '@example.test'
+        body = {'email': email, 'password': 'KraTest-password123', 'nickname': '검증 회원'}
+        self.assertEqual(request('/auth/register', 'POST', body)[0], 201)
+        token = request('/auth/login', 'POST', body)[1]['token']
+        user_id = int(mysql('SELECT id FROM member WHERE email=' + importer.literal(email) + ';', 'keiba'))
+        self.addCleanup(lambda: mysql(f'UPDATE member SET is_admin=FALSE WHERE id={user_id};', 'keiba'))
+        mysql(f'UPDATE member SET is_admin=TRUE WHERE id={user_id};', 'keiba')
+        self.assertEqual(request(f'/races/{race_id}/prediction', 'POST', token=token)[0], 400)
+        _, rows = request('/admin/races', token=token)
+        row = next(row for row in rows if row['id'] == race_id)
+        row['name'] = '수정 시도'
+        status, _ = request('/admin/races/save', 'POST', {'rows': [row]}, token)
+        self.assertEqual(status, 400)
+        self.assertEqual(request(f'/races/{race_id}')[1]['race']['name'], '서울 91R · 가상 KRA 검증')
+
+
+if __name__ == '__main__':
+    unittest.main()
