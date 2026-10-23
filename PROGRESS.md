@@ -1,5 +1,7 @@
 # 단계별 결과
 
+현재 기준의 구현 상태와 검증 출처는 [docs/CURRENT_STATUS.md](docs/CURRENT_STATUS.md)에 정리했습니다. 아래는 작업 시점별 기록이므로 과거 절의 ‘현재/미구현’ 표현은 뒤 절의 개선으로 바뀌었을 수 있습니다.
+
 | Phase | 실제 결과 | 검증 | 주요 파일 |
 |---|---|---|---|
 | 1 설계/환경 | SRS 전체 분석, 아키텍처/ERD/API/추적표, React–Spring–MySQL 초기 실행 | 초기 두 빌드 및 Vite 프록시 health 성공 | 루트 문서, build.gradle, compose.yaml |
