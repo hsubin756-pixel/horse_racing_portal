@@ -26,7 +26,7 @@ test('imported KRA-shaped records show provenance, independent odds, sectionals 
   await expect(page.locator('.facts')).toContainText('2회');
   await page.goto('/races/'+raceId);
   await page.locator('.entry-table tbody tr').first().getByRole('link',{name:'가상 KRA 검증말 1 ↗'}).click();
-  await expect(page.locator('.detail-head')).toContainText('한국마사회 경주성적정보 · 마번 9700001');
+  await expect(page.locator('.detail-head')).toContainText('한국마사회 자료 · 마번 9700001');
   await expect(page.locator('.style-summary')).toContainText('판단 보류');
   await page.setViewportSize({width:375,height:812});
   await page.goto('/races/'+raceId);

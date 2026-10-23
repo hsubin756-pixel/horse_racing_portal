@@ -20,7 +20,10 @@ class PredictionTests(unittest.TestCase):
   """한국마사회 경주(race.source KRA_*)는 /predict/real 로 가며, 모델이 없으면 준비 안내 503을 받습니다."""
   user={'email':uuid.uuid4().hex+'@example.test','password':'ML-test-password-123','nickname':'실험 회원'}
   request('/auth/register','POST',user);_,auth=request('/auth/login','POST',user);token=auth['token']
-  _,races=request('/races?page=0');real=[r for r in races['content'] if r['source'].startswith('KRA_') and r['status']=='OFFICIAL']
+  real=[]
+  for page in range(10):
+   s,races=request('/races?page=%d'%page);real+=[r for r in races.get('content',[]) if r['source'].startswith('KRA_') and r['status']=='OFFICIAL']
+   if s!=200 or page+1>=races.get('totalPages',0): break
   if not real: self.skipTest('실제 경주가 DB에 없음')
   with urlopen('http://127.0.0.1:8000/health') as r: health=json.load(r)
   s,d=request('/races/%d/prediction'%real[0]['id'],'POST',token=token)
