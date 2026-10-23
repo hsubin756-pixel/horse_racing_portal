@@ -77,6 +77,16 @@ class HorsePlanTests(unittest.TestCase):
 
 
 class PeopleAndPlanTests(unittest.TestCase):
+    def test_people_command_skips_rows_without_provider_number(self):
+        rows = {'jockey-info': [JOCKEY, dict(JOCKEY, jkNo='', jkName='번호없음'), dict(JOCKEY, jkNo='A1', jkName='문자번호')], 'trainer-info': [TRAINER]}
+        with mock.patch.object(km, 'collect', side_effect=lambda api, params, pages: (rows[api], '2026-10-23 03:00:00')), \
+                mock.patch.object(km, 'run_sql') as run_sql, mock.patch('builtins.print') as printed:
+            km.command_people(type('A', (), {'meet': '1', 'apply': False})())
+        run_sql.assert_not_called()
+        text = ' '.join(str(c.args[0]) for c in printed.call_args_list)
+        self.assertIn('기수 1명 · 조교사 1명 준비, 번호가 없어 건너뜀 2건', text)
+        self.assertIn('번호없음', text)
+
     def test_person_plan_and_sql(self):
         jockey = km.prepare_person('JOCKEY', JOCKEY)
         self.assertEqual((jockey['kra'], jockey['name'], jockey['debut'], jockey['retired'], jockey['affiliation']), ('080618', '권중석', '2025-06-25', None, '프리기수'))

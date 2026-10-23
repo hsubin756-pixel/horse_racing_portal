@@ -272,17 +272,26 @@ def sql_people(plans, retrieved):
 
 
 def command_people(args):
-    plans, seen = [], set()
+    plans, seen, skipped = [], set(), []
     for kind, api in (('JOCKEY', 'jockey-info'), ('TRAINER', 'trainer-info')):
         rows, retrieved = collect(api, {'meet': args.meet}, 20)
         for row in rows:
-            plan = prepare_person(kind, row)
+            try:
+                plan = prepare_person(kind, row)
+            except KraError as exc:
+                # Rows without a usable provider number (blank or non-numeric) cannot be matched, so they are reported and skipped.
+                skipped.append(f"{kind} {clean_name(row.get('jkName') or row.get('trName')) or '(이름 없음)'}: {exc}")
+                continue
             if (kind, kra_num(plan['kra'])) in seen:
                 raise KraError(f'{kind} {plan["kra"]}: 응답에 같은 번호가 두 번 있습니다.')
             seen.add((kind, kra_num(plan['kra'])))
             plans.append(plan)
     jockeys = sum(p['kind'] == 'JOCKEY' for p in plans)
-    print(f'{MEETS[args.meet]} 기수 {jockeys}명 · 조교사 {len(plans) - jockeys}명 준비')
+    print(f'{MEETS[args.meet]} 기수 {jockeys}명 · 조교사 {len(plans) - jockeys}명 준비, 번호가 없어 건너뜀 {len(skipped)}건')
+    for line in skipped[:10]:
+        print('  건너뜀: ' + line)
+    if not plans:
+        raise KraError('반영할 인물이 없습니다.')
     for plan in plans[:5]:
         print(f"  {plan['kind']} {plan['kra']} {plan['name']} · 데뷔 {plan['debut'] or '미제공'} · 소속 {plan['affiliation'] or '미제공'}")
     if not args.apply:

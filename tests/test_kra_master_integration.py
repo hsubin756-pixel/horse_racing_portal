@@ -27,25 +27,6 @@ class MasterIntegrationTests(unittest.TestCase):
         purge(self.prefix)
 
 
-def purge(prefix):
-    """Remove every fixture row created with this prefix (horses, name-only ancestors, people, planned races)."""
-    # MySQL forbids updating a table that the same statement selects from, hence the derived table.
-    horses = f"kra_id LIKE '{prefix}%' OR ancestor_key LIKE 'KRA:가상 조상 {prefix}%'"
-    ids = f'SELECT id FROM (SELECT id FROM horse WHERE {horses}) fixture'
-    mysql(f'UPDATE horse SET sire_id=NULL WHERE sire_id IN ({ids});UPDATE horse SET dam_id=NULL WHERE dam_id IN ({ids});'
-          f"DELETE FROM kra_master_import WHERE subject LIKE '{prefix}%' OR subject LIKE '1:2099%';"
-              f'DELETE FROM sectional_marker WHERE entry_id IN (SELECT id FROM entry WHERE horse_id IN ({ids}));'
-              f'DELETE FROM sectional WHERE entry_id IN (SELECT id FROM entry WHERE horse_id IN ({ids}));'
-              f'DELETE FROM entry WHERE horse_id IN ({ids});'
-              f'DELETE FROM horse WHERE {horses};'
-              f"DELETE FROM person WHERE kra_id LIKE '{prefix}%';"
-              f"DELETE FROM race_favorite WHERE race_id IN (SELECT id FROM race WHERE kra_id LIKE '1:2099%');"
-              f"DELETE FROM kra_race_import WHERE race_id IN (SELECT id FROM race WHERE kra_id LIKE '1:2099%');"
-              f"DELETE FROM sectional_marker WHERE entry_id IN (SELECT e.id FROM entry e JOIN race r ON r.id=e.race_id WHERE r.kra_id LIKE '1:2099%');"
-              f"DELETE FROM sectional WHERE entry_id IN (SELECT e.id FROM entry e JOIN race r ON r.id=e.race_id WHERE r.kra_id LIKE '1:2099%');"
-              f"DELETE FROM entry WHERE race_id IN (SELECT id FROM race WHERE kra_id LIKE '1:2099%');"
-              f"DELETE FROM race WHERE kra_id LIKE '1:2099%';", 'keiba')
-
     def fixture_horse(self):
         info = dict(INFO, hrNo=self.prefix + '1', hrName=self.names[0], faHrNo=self.prefix + '2', faHrName=self.names[1],
                     moHrNo=self.prefix + '3', moHrName=self.names[2], trNo=self.prefix + '9', trName='가상 마스터 조교사')
@@ -125,6 +106,26 @@ def purge(prefix):
         # A later plan run must not touch the official race.
         out = mysql(km.sql_plans('1', [plan], RETRIEVED_SQL), 'keiba')
         self.assertIn(f'KRA_PLAN\t{race_id}\t0\t0', out)
+
+
+def purge(prefix):
+    """Remove every fixture row created with this prefix (horses, name-only ancestors, people, planned races)."""
+    # MySQL forbids updating a table that the same statement selects from, hence the derived table.
+    horses = f"kra_id LIKE '{prefix}%' OR ancestor_key LIKE 'KRA:가상 조상 {prefix}%'"
+    ids = f'SELECT id FROM (SELECT id FROM horse WHERE {horses}) fixture'
+    mysql(f'UPDATE horse SET sire_id=NULL WHERE sire_id IN ({ids});UPDATE horse SET dam_id=NULL WHERE dam_id IN ({ids});'
+          f"DELETE FROM kra_master_import WHERE subject LIKE '{prefix}%' OR subject LIKE '1:2099%';"
+              f'DELETE FROM sectional_marker WHERE entry_id IN (SELECT id FROM entry WHERE horse_id IN ({ids}));'
+              f'DELETE FROM sectional WHERE entry_id IN (SELECT id FROM entry WHERE horse_id IN ({ids}));'
+              f'DELETE FROM entry WHERE horse_id IN ({ids});'
+              f'DELETE FROM horse WHERE {horses};'
+              f"DELETE FROM person WHERE kra_id LIKE '{prefix}%';"
+              f"DELETE FROM race_favorite WHERE race_id IN (SELECT id FROM race WHERE kra_id LIKE '1:2099%');"
+              f"DELETE FROM kra_race_import WHERE race_id IN (SELECT id FROM race WHERE kra_id LIKE '1:2099%');"
+              f"DELETE FROM sectional_marker WHERE entry_id IN (SELECT e.id FROM entry e JOIN race r ON r.id=e.race_id WHERE r.kra_id LIKE '1:2099%');"
+              f"DELETE FROM sectional WHERE entry_id IN (SELECT e.id FROM entry e JOIN race r ON r.id=e.race_id WHERE r.kra_id LIKE '1:2099%');"
+              f"DELETE FROM entry WHERE race_id IN (SELECT id FROM race WHERE kra_id LIKE '1:2099%');"
+              f"DELETE FROM race WHERE kra_id LIKE '1:2099%';", 'keiba')
 
 
 if __name__ == '__main__':
