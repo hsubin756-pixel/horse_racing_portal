@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""검증된 서울 완료 경주 원본을 미리보기 또는 로컬 DB에 최초 반영합니다."""
+"""검증된 완료 경주 원본(서울·제주·부산경남)을 미리보기 또는 로컬 DB에 최초 반영합니다."""
 import argparse
 from collections import defaultdict
 from datetime import date, datetime, timezone, timedelta
@@ -14,6 +14,10 @@ import sys
 from kra import ENDPOINT, MAX_BYTES, PAGE_SIZE, KraError, parse_page
 
 SOURCE = 'KRA_API214_1'
+MEETS = {'1': '서울', '2': '제주', '3': '부산경남'}
+MEET_CODES = {name: code for code, name in MEETS.items()}
+# 구간·코너 필드의 의미(누적/구간)가 경마장마다 다르다고 안내되어 있어, 서울 외에는 확인된 결승 기록만 저장합니다(원본 전체는 raw_json 보관).
+DETAIL_MEETS = {'1'}
 
 
 def text(row, key, max_length=100, optional=False):
@@ -61,8 +65,8 @@ def load_archive(folder):
     if meta.get('source') != SOURCE or meta.get('endpoint') != ENDPOINT or meta.get('complete') is not True:
         raise KraError('완료된 API214_1 다운로드만 반영할 수 있습니다.')
     filters = meta.get('filters', {})
-    if filters.get('meet') != '1':
-        raise KraError('첫 반영 버전은 서울 경주만 지원합니다. 제주·부산경남 기록은 별도 변환이 필요합니다.')
+    if filters.get('meet') not in MEETS:
+        raise KraError('지원하는 경마장은 서울(1)·제주(2)·부산경남(3)입니다.')
     if day(filters.get('rc_date', '')) >= datetime.now(timezone(timedelta(hours=9))).date():
         raise KraError('완료 여부 검증을 위해 오늘 이전 경주만 반영합니다.')
     try:
@@ -86,7 +90,7 @@ def load_archive(folder):
             raise KraError('원본 페이지의 전체 건수가 맞지 않습니다.')
         rows.extend(batch)
     for row in rows:
-        if row.get('meet') != '서울' or row.get('rcDate') != filters['rc_date']:
+        if row.get('meet') != MEETS[filters['meet']] or row.get('rcDate') != filters['rc_date']:
             raise KraError('요청한 경마장·날짜와 원본이 다릅니다.')
         if 'rc_no' in filters and str(number(row, 'rcNo', 1, 99)) != str(filters['rc_no']):
             raise KraError('요청한 경주번호와 원본이 다릅니다.')
@@ -96,11 +100,11 @@ def load_archive(folder):
 def prepare(rows, retrieved):
     groups = defaultdict(list)
     for row in rows:
-        if text(row, 'meet') != '서울':
-            raise KraError('서울 원본만 지원합니다.')
-        groups[(text(row, 'rcDate'), number(row, 'rcNo', 1, 99))].append(row)
+        if text(row, 'meet') not in MEET_CODES:
+            raise KraError('서울·제주·부산경남 원본만 지원합니다.')
+        groups[(MEET_CODES[row['meet']], text(row, 'rcDate'), number(row, 'rcNo', 1, 99))].append(row)
     races = []
-    for (race_day, race_no), raw in sorted(groups.items()):
+    for (meet, race_day, race_no), raw in sorted(groups.items()):
         first, field = raw[0], len(raw)
         if not 2 <= field <= 30:
             raise KraError('한 경주의 전체 출전 자료(2~30두)가 필요합니다.')
@@ -109,8 +113,9 @@ def prepare(rows, retrieved):
         common = ('rcDist', 'rcName', 'rank', 'weather', 'track')
         if any(any(r.get(k, '') != first.get(k, '') for k in common) for r in raw):
             raise KraError('같은 경주의 거리·등급·날씨 정보가 일치하지 않습니다.')
-        race = {'key': f'1:{race_day}:{race_no}', 'date': race_date.isoformat(),
-                'name': f"서울 {race_no}R · {text(first, 'rcName', 120)}", 'distance': distance,
+        race = {'key': f'{meet}:{race_day}:{race_no}', 'date': race_date.isoformat(), 'meet': meet, 'venue': MEETS[meet],
+                'surface': '더트' if meet == '1' else '미제공',
+                'name': f"{MEETS[meet]} {race_no}R · {text(first, 'rcName', 120)}", 'distance': distance,
                 'class': text(first, 'rank', 60, True), 'weather': text(first, 'weather', 30, True),
                 'going': text(first, 'track', 30, True), 'entries': []}
         horses, numbers = set(), set()
@@ -142,7 +147,7 @@ def prepare(rows, retrieved):
             points = {}
             for where, time_key, ord_key in [(200, 'seS1fAccTime', 'sjS1fOrd'),
                     (distance - 600, 'seG3fAccTime', 'sjG3fOrd'),
-                    (distance - 200, 'seG1fAccTime', 'sjG1fOrd')]:
+                    (distance - 200, 'seG1fAccTime', 'sjG1fOrd')] if meet in DETAIL_MEETS else []:
                 seconds = number(r, time_key, Decimal('.01'), finish_time, True, 2)
                 position = number(r, ord_key, 1, field, True)
                 if seconds is not None or position is not None:
@@ -158,7 +163,7 @@ def prepare(rows, retrieved):
                     previous = seconds
             corners = []
             previous = Decimal('0')
-            for corner in range(1, 5):
+            for corner in (range(1, 5) if meet in DETAIL_MEETS else ()):
                 seconds = number(r, f'se_{corner}cAccTime', Decimal('.01'), finish_time, True, 2)
                 position = number(r, f'sj_{corner}cOrd', 1, field, True)
                 if seconds is not None:
@@ -212,12 +217,12 @@ def sql_plan(races):
             "SET @planned=(SELECT COUNT(*) FROM race r WHERE r.id=@rid AND r.status='SCHEDULED' AND NOT EXISTS(SELECT 1 FROM entry e WHERE e.race_id=r.id) AND NOT EXISTS(SELECT 1 FROM kra_race_import k WHERE k.race_id=r.id));",
             'SET @new_race=(@rid IS NULL OR @planned=1);',
             f'INSERT INTO kra_assertion VALUES (IF(@new_race=1,1,EXISTS(SELECT 1 FROM kra_race_import WHERE race_id=@rid AND fingerprint={fingerprint})));',
-            insert('race', {'name': race['name'], 'race_date': race['date'], 'venue': '서울',
-                'distance': race['distance'], 'surface': '더트', 'race_class': race['class'],
+            insert('race', {'name': race['name'], 'race_date': race['date'], 'venue': race['venue'],
+                'distance': race['distance'], 'surface': race['surface'], 'race_class': race['class'],
                 'weather': race['weather'], 'going': race['going'], 'status': 'OFFICIAL',
                 'source': SOURCE, 'kra_id': race['key']}, '@rid IS NULL'),
             'UPDATE race SET ' + ','.join(f'{k}={literal(v)}' for k, v in {'name': race['name'], 'race_date': race['date'], 'distance': race['distance'],
-                'race_class': race['class'], 'weather': race['weather'], 'going': race['going'], 'status': 'OFFICIAL', 'source': SOURCE}.items()) + ' WHERE id=@rid AND @planned=1;',
+                'venue': race['venue'], 'surface': race['surface'], 'race_class': race['class'], 'weather': race['weather'], 'going': race['going'], 'status': 'OFFICIAL', 'source': SOURCE}.items()) + ' WHERE id=@rid AND @planned=1;',
             f'SET @rid=(SELECT id FROM race WHERE kra_id={key});']
         for entry in race['entries']:
             for kind, role, var in [('JOCKEY', 'jockey', '@jid'), ('TRAINER', 'trainer', '@tid')]:
@@ -263,10 +268,10 @@ def main():
     args = parser.parse_args()
     try:
         races = load_archive(args.directory)
-        print(f"검증 완료: 서울 {len(races)}경주 / {sum(len(r['entries']) for r in races)}두 출전")
+        print(f"검증 완료: {', '.join(sorted({r['venue'] for r in races}))} {len(races)}경주 / {sum(len(r['entries']) for r in races)}두 출전")
         for race in races:
             print(f"{race['date']} · {race['name']} · {len(race['entries'])}두")
-        print('단승 배당·구간 기록을 반영합니다. 공식 인기 순위는 미제공, plcOdds는 원본에 보관합니다.')
+        print('단승 배당을 반영합니다(구간·코너 기록은 서울만). 공식 인기 순위는 미제공, plcOdds는 원본에 보관합니다.')
         if not args.apply:
             print('미리보기입니다. DB에 반영하려면 같은 명령 끝에 --apply를 붙이세요.')
             return 0

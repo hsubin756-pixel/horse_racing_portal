@@ -16,10 +16,10 @@ import kra_import as importer
 RETRIEVED = datetime(2026, 10, 23, 0, 0, tzinfo=timezone.utc)
 
 
-def sample_rows(race_no=91, race_date='20100101', prefix='99000'):
+def sample_rows(race_no=91, race_date='20100101', prefix='99000', meet='서울'):
     rows = []
     for i in range(1, 3):
-        rows.append({'meet': '서울', 'rcDate': race_date, 'rcNo': str(race_no), 'rcDist': '1200',
+        rows.append({'meet': meet, 'rcDate': race_date, 'rcNo': str(race_no), 'rcDist': '1200',
             'rcName': '가상 KRA 검증', 'rank': '국6등급', 'weather': '맑음', 'track': '건조 (2%)',
             'hrNo': prefix + str(i), 'hrName': f'가상 KRA 검증말 {i}', 'sex': '수', 'birthday': '20070407',
             'chulNo': str(i), 'ord': str(i), 'ordBigo': '-', 'rcTime': str(Decimal('75.9') + i - 1),
@@ -32,7 +32,7 @@ def sample_rows(race_no=91, race_date='20100101', prefix='99000'):
     return rows
 
 
-def archive(folder, rows=None):
+def archive(folder, rows=None, meet='1'):
     rows = rows or sample_rows()
     root = ET.Element('response')
     ET.SubElement(ET.SubElement(root, 'header'), 'resultCode').text = '00'
@@ -47,7 +47,7 @@ def archive(folder, rows=None):
     (folder / 'page-1.xml').write_text(ET.tostring(root, encoding='unicode'))
     metadata = {'source': importer.SOURCE, 'endpoint': kra.ENDPOINT, 'complete': True, 'pages': 1,
         'totalCount': len(rows), 'receivedCount': len(rows), 'retrievedAt': RETRIEVED.isoformat(),
-        'filters': {'meet': '1', 'rc_date': rows[0]['rcDate']}}
+        'filters': {'meet': meet, 'rc_date': rows[0]['rcDate']}}
     (folder / 'summary.json').write_text(json.dumps(metadata))
     return metadata
 
@@ -65,6 +65,22 @@ class KraImportTests(unittest.TestCase):
         self.assertNotIn('popularity', e)
         self.assertNotIn('plcOdds', e)
         self.assertIn('"plcOdds":"1.7"', race['raw'])
+
+    def test_jeju_and_busan_keep_finish_and_odds_but_skip_unverified_sectionals(self):
+        for meet, code in (('제주', '2'), ('부산경남', '3')):
+            race = importer.prepare(sample_rows(meet=meet), RETRIEVED)[0]
+            e = race['entries'][0]
+            with self.subTest(meet=meet):
+                self.assertEqual((race['key'], race['venue'], race['surface']), (f'{code}:20100101:91', meet, '미제공'))
+                self.assertTrue(race['name'].startswith(f'{meet} 91R'))
+                self.assertEqual(sorted(e['points']), [1200])      # finish only
+                self.assertEqual(e['corners'], [])
+                self.assertEqual((e['finish'], e['odds'], e['body']), (1, Decimal('4.6'), 502))
+                self.assertIn('"seG1fAccTime":"62.1"', race['raw'])  # full provider row stays in raw_json
+                sql = importer.sql_plan([race])
+                self.assertIn(importer.literal(meet), sql)
+        seoul = importer.prepare(sample_rows(), RETRIEVED)[0]
+        self.assertEqual((seoul['key'], seoul['surface']), ('1:20100101:91', '더트'))
 
     def test_rejects_ambiguous_results_and_invalid_sectionals(self):
         for updates in [
@@ -102,8 +118,22 @@ class KraImportTests(unittest.TestCase):
             folder = Path(name)
             meta = archive(folder)
             self.assertEqual(len(importer.load_archive(folder)[0]['entries']), 2)
+            for meet, name in (('2', '제주'), ('3', '부산경남')):
+                with self.subTest(meet=meet):
+                    archive(folder, sample_rows(meet=name), meet)
+                    self.assertEqual(importer.load_archive(folder)[0]['venue'], name)
+                    meta_wrong = json.loads((folder / 'summary.json').read_text())
+                    meta_wrong['filters']['meet'] = '1'      # archive says Seoul but rows say Jeju/Busan
+                    (folder / 'summary.json').write_text(json.dumps(meta_wrong))
+                    with self.assertRaises(kra.KraError):
+                        importer.load_archive(folder)
+            meta = archive(folder)
+            (folder / 'summary.json').write_text(json.dumps({**meta, 'filters': {'meet': '4', 'rc_date': '20100101'}}))
+            with self.assertRaises(kra.KraError):
+                importer.load_archive(folder)
+            meta = archive(folder)
             for changes in [{'complete': False}, {'receivedCount': 1}, {'totalCount': 0}, {'pages': 2},
-                    {'filters': {'meet': '2', 'rc_date': '20100101'}},
+                    {'filters': {'meet': '2', 'rc_date': '20100101'}},   # Seoul rows under a Jeju request
                     {'filters': {'meet': '1', 'rc_date': '20100102'}},
                     {'retrievedAt': '2026-01-01T00:00:00'}]:
                 (folder / 'summary.json').write_text(json.dumps({**meta, **changes}))

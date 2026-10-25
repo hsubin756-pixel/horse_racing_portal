@@ -318,7 +318,7 @@ def prepare_plan(meet, row, today):
     if re.fullmatch(r'\d{4}', start) and start[:2] < '24' and start[2:] < '60':
         start_time = f'{start[:2]}:{start[2:]}:00'
     prize = profile(row, ('chaksun1', 'chaksun2', 'chaksun3', 'chaksun4', 'chaksun5', 'buga1', 'buga2', 'buga3', 'budam', 'ageCond', 'sexCond', 'ilsu', 'stRating', 'spRating'))
-    plan = {'key': f'{meet}:{race_date:%Y%m%d}:{race_no}', 'date': race_date.isoformat(), 'venue': meet_name,
+    plan = {'key': f'{meet}:{race_date:%Y%m%d}:{race_no}', 'date': race_date.isoformat(), 'venue': meet_name, 'surface': '더트' if meet == '1' else '미제공',
             'name': f"{meet_name} {race_no}R · {text(row, 'rcName', 120)}", 'distance': number(row, 'rcDist', 800, 4000),
             'class': text(row, 'rank', 60, True) or None, 'start': start_time, 'prize': prize}
     plan['raw'], plan['fingerprint'] = fingerprint(row)
@@ -331,7 +331,7 @@ def sql_plans(meet, plans, retrieved):
         key = literal(plan['key'])
         statements += [f'SET @rid=(SELECT id FROM race WHERE kra_id={key});', 'SET @created=(@rid IS NULL);',
                        insert('race', {'name': plan['name'], 'race_date': plan['date'], 'venue': plan['venue'], 'distance': plan['distance'],
-                                       'surface': '더트', 'start_time': plan['start'], 'race_class': plan['class'], 'status': 'SCHEDULED',
+                                       'surface': plan['surface'], 'start_time': plan['start'], 'race_class': plan['class'], 'status': 'SCHEDULED',
                                        'source': SOURCES['plans'], 'kra_id': plan['key'], 'prize_json': json.dumps(plan['prize'], ensure_ascii=False)}, '@rid IS NULL'),
                        f'SET @rid=(SELECT id FROM race WHERE kra_id={key});',
                        "SET @updated=(SELECT status='SCHEDULED' FROM race WHERE id=@rid);",
