@@ -176,3 +176,7 @@ JWT 만료 필드가 없는 서명 토큰의 허용 가능성을 차단했습니
 - 수정 후 브라우저(로그인 상태, `/races/9/prediction`): "KRA OPEN DATA MODEL" 안내, 모델 정보(2025-01-04~2025-12-28, 1,018경주), 지표 표(이 모델 0.738/0.497/0.526, 시장 기준선 0.791/0.585/0.579), 14두 점수(0.262~0.309)와 "보존 전적 없음" 표시를 사용자 캡처로 확인했습니다. 2022년 출주마는 2025년 학습 자료에 없어 전적 입력이 비어 있으며, 이 상태를 숨기지 않고 표시합니다.
 - Chromium `kra.spec.ts`(예측 링크·안내 포함) 통과, `portal.spec.ts` 예측 시나리오(합성 경주) 통과. ML 단위 테스트 8개 통과. 날짜 수정 패치 적용 후 `./scripts/gradle.sh test bootJar` **BUILD SUCCESSFUL**(PredictServiceTest의 전송 형식 검사 포함), `tests/test_ml.py` **2개 OK**(실제 경주 `real_data_experiment` 응답·정렬·knownStarts 확인). 학습 CSV `ml/data/seoul-2025.csv`를 커밋해 GitHub 클론에서도 실제 모델이 빌드됩니다.
 - 한계: 학습 마감일 이후 전적은 재학습 전까지 미반영, 서울 1년 자료, 보정 없음. 예측 화면 지표는 홀드아웃 1회 결과입니다.
+
+## 제주·부산경남 반영·갱신 명령·예측 e2e — 클라우드 오프라인 검증 (2026-10-26)
+- 실행·통과: `tests/test_kra_import.py` 7개(제주·부산경남 변환: 경주 ID·경마장명·주로 `미제공`·결승만 저장·원본 보관, 보관 폴더의 경마장 불일치 거부, 서울 동작 유지), `test_kra_master.py` 9개, `test_kra_catalog.py` 6개, `test_kra_ml_dataset.py` 4개, 신규 `test_refresh_training.py` 6개(계획·경로 충돌 방지·부분 수집 시 중단·재학습 호출·실패 처리), ML `test_model_real.py` 2개(CSV 2개 병합 학습 포함)·`test_evaluation_extended.py` 2개, 프론트엔드 `tsc --noEmit` 오류 없음, Playwright 시나리오 목록 인식(총 16개).
+- **미실행(사용자 PC 검증 필요)**: 실제 제주·부산경남 API 호출과 DB 반영(응답 필드·경마장 표기가 가정과 같은지 미확인), `refresh_training.py` 실제 실행(수집 호출·재학습·시간), 여러 경마장을 섞은 모델 성능, `prediction.spec.ts` 5개(특히 모바일 폭의 가로 넘침과 실제 모델 시나리오 — 로컬 ML 서비스에 실제 모델이 없으면 해당 1개는 건너뜀), Gradle 빌드.
