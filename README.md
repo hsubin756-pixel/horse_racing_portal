@@ -76,7 +76,7 @@ python3 scripts/kra.py configure
 python3 scripts/kra.py check --meet 1 --date 20220220 --race 1
 ```
 
-키와 다운로드 자료는 Git에서 제외된 `.runtime/kra/`에만 저장합니다. 실제 API 연결은 사용자 PC의 키와 네트워크로 확인해야 합니다. 서울 완료 경주는 `python3 scripts/kra_import.py .runtime/kra/results-폴더명`으로 검증한 뒤 같은 명령에 `--apply`를 붙여 사이트에 반영할 수 있습니다. 먼저 최신 소스로 `./scripts/up.sh`를 실행해 V9를 적용하세요. 실제 자료와 가상 샘플은 출처로 구분합니다. 자세한 순서는 위 안내에 있습니다.
+키와 다운로드 자료는 Git에서 제외된 `.runtime/kra/`에만 저장합니다. 실제 API 연결은 사용자 PC의 키와 네트워크로 확인해야 합니다. 서울·제주·부산경남 완료 경주는 `python3 scripts/kra_import.py .runtime/kra/results-폴더명`으로 검증한 뒤 같은 명령에 `--apply`를 붙여 사이트에 반영할 수 있습니다. 먼저 최신 소스로 `./scripts/up.sh`를 실행해 V9를 적용하세요. 실제 자료와 가상 샘플은 출처로 구분합니다. 자세한 순서는 위 안내에 있습니다.
 
 ## 화면 및 도메인
 - 부분 이름 검색, 20건 페이지, 성별/생년 정렬 → 상세 → 최신 완료 전적 → 경주 결과로 이동.

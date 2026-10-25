@@ -8,8 +8,8 @@ import app as service
 from train_real import train
 
 
-def fixture(path):
-    random.seed(7)
+def fixture(path, meet='1', seed=7):
+    random.seed(seed)
     skill = {h: random.gauss(0, 1) for h in range(1, 120)}
     rows = []
     for d in range(70):
@@ -18,7 +18,7 @@ def fixture(path):
             field = random.sample(range(1, 120), 8)
             order = sorted(field, key=lambda h: -(skill[h] + random.gauss(0, 1.5)))
             for rank, h in enumerate(order, 1):
-                rows.append({'race_id': f'1:{day:%Y%m%d}:{r}', 'race_date': day.isoformat(), 'horse_id': h, 'distance': 1200, 'finish_position': rank,
+                rows.append({'race_id': f'{meet}:{day:%Y%m%d}:{r}', 'race_date': day.isoformat(), 'horse_id': h, 'distance': 1200, 'finish_position': rank,
                              'jockey': f'J{h % 9}', 'trainer': f'T{h % 5}', 'carried_weight': '56', 'win_odds': str(round(random.uniform(1.5, 40), 1)),
                              'place_odds': '', 'gate': str(rank), 'horse_weight': '480', 'rating': '0', 'sex': '수', 'birth_date': '2020-04-01'})
     with path.open('w', newline='', encoding='utf-8') as sink:
@@ -56,6 +56,17 @@ class RealModelTests(unittest.TestCase):
             with mock.patch.object(service, 'load_real', return_value=None), TestClient(service.app) as client:
                 self.assertIsNone(client.get('/health').json()['realDataModel'])
                 self.assertEqual(client.post('/predict/real', json=body).status_code, 503)
+
+    def test_several_files_are_merged_for_one_holdout(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); fixture(root / 'a.csv', '1', 7); fixture(root / 'b.csv', '2', 8)
+            report = train([str(root / 'a.csv'), str(root / 'b.csv')], 'generated fixtures; no real racing data', output=root)
+            self.assertEqual(report['trainingRaces'], 420)
+            self.assertEqual([f['path'] for f in report['dataFiles']], ['a.csv', 'b.csv'])
+            self.assertIn('rocAuc', report['holdoutMetrics'])
+            fixture(root / 'c.csv', '1', 9)   # same race ids as a.csv
+            with self.assertRaises(ValueError):
+                train([str(root / 'a.csv'), str(root / 'c.csv')], 'x', output=root)
 
 
 if __name__ == '__main__':

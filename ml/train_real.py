@@ -5,7 +5,7 @@ real-model-report.json (temporal holdout metrics of this feature set plus the ma
 automatically: app.py serves this model only through /predict/real and labels it real_data_experiment.
 Run with --if-present to exit quietly when ml/data/ holds no CSV (used by the Docker build).
 """
-import argparse, hashlib, json, sys
+import argparse, csv, hashlib, json, sys, tempfile
 from collections import defaultdict
 from datetime import date
 from pathlib import Path
@@ -30,6 +30,25 @@ def history(races):
     return {k: sorted(v) for k, v in horses.items()}, {k: sorted(v) for k, v in people.items()}
 
 
+def evaluate_files(paths, provenance):
+    """Temporal holdout of the same feature set; several CSVs (tracks/periods) are merged first so one split covers them all."""
+    if len(paths) == 1:
+        return evaluate(paths[0], provenance)
+    with tempfile.TemporaryDirectory() as folder:
+        merged = Path(folder) / 'merged.csv'
+        with merged.open('w', newline='', encoding='utf-8') as sink:
+            writer = None
+            for path in paths:
+                with Path(path).open(newline='', encoding='utf-8-sig') as source:
+                    reader = csv.DictReader(source)
+                    if writer is None:
+                        writer = csv.DictWriter(sink, fieldnames=reader.fieldnames); writer.writeheader()
+                    elif reader.fieldnames != writer.fieldnames:
+                        raise ValueError(f'{path}: CSV columns differ from the first file')
+                    writer.writerows(reader)
+        return evaluate(str(merged), provenance)
+
+
 def train(paths, provenance, output=ROOT):
     rows_all, races = [], {}
     for path in paths:
@@ -42,7 +61,7 @@ def train(paths, provenance, output=ROOT):
     x = np.array([[row[c] for c in columns] for row in table], dtype=float)
     model = RandomForestClassifier(n_estimators=120, max_depth=5, min_samples_leaf=8, random_state=42, n_jobs=1)
     model.fit(x, y)
-    holdout = evaluate(paths[0], provenance) if len(paths) == 1 else None
+    holdout = evaluate_files(paths, provenance)
     horses, people = history(races)
     cutoff = str(max(dates))
     report = {'modelKind': 'real_data_experiment', 'features': columns, 'provenanceDeclaredByOperator': provenance, 'rightsVerifiedByTool': False,
@@ -51,7 +70,7 @@ def train(paths, provenance, output=ROOT):
               'holdoutMetrics': holdout['results'][FEATURE_SET]['metrics'] if holdout else None,
               'marketBaselineMetrics': holdout['results']['market_only_rank_by_win_odds']['metrics'] if holdout else None,
               'holdoutStartDate': holdout['holdoutStartDate'] if holdout else None,
-              'limitations': 'Experimental model trained on provider open data for one track and period; holdout metrics come from a single temporal split '
+              'limitations': 'Experimental model trained on provider open data for the tracks and periods listed in dataFiles; holdout metrics come from a single temporal split '
                              'before retraining on all rows. Histories are frozen at cutoffDate until retrained. No calibration, no profitability claim, '
                              'no market inputs. Scores are not probabilities of placing.'}
     joblib.dump(model, output / 'real-model.joblib')

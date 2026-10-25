@@ -56,6 +56,16 @@ python3 scripts/kra_ml_dataset.py export --meet 1 --output .runtime/kra/ml/seoul
 .runtime/ml-venv/bin/python -m unittest ml.test_evaluation_extended   # 또는 cd ml && python -m unittest test_evaluation_extended
 ```
 
+### 제주·부산경남 수집과 갱신 한 줄 명령 (2026-10-26)
+- `collect --meet 2|3`은 처음부터 지원됩니다(시행 요일 제주 금·토, 부산경남 금·일). 경주 ID는 경마장 코드가 앞에 붙어 서로 겹치지 않고, 마번(`hrno`)은 경마장과 무관한 전국 번호라 한 말의 이력이 경마장을 넘어 이어집니다. 다만 제주·부산경남 자료로 모델을 평가한 결과는 아직 없습니다(미검증).
+- `scripts/refresh_training.py`가 collect → export(`ml/data/<seoul|jeju|busan>-<연도>.csv`) → `ml/train_real.py`를 한 번에 실행합니다.
+
+```bash
+python3 scripts/refresh_training.py --meets 1 2 3 --from 20250103 --to 20251228 [--max-calls 250] [--skip-train] [--dry-run]
+```
+
+호출 한도로 날짜가 남으면 CSV를 만들지 않고 멈추니 같은 명령을 다시 실행하세요(받은 날짜는 건너뜁니다). 같은 경마장의 다른 기간 CSV가 `ml/data/`에 있으면 경주 ID가 겹쳐 학습이 실패하므로 미리 중단합니다. 끝난 뒤 `ml/data/PROVENANCE.md`에 출처·기간을 적고 `./scripts/up.sh`로 이미지를 다시 빌드합니다. CSV가 여러 개이면 `train_real.py`는 파일들을 합쳐 하나의 시간순 홀드아웃으로 지표를 계산합니다(여러 경마장을 섞은 성능은 첫 실행 결과가 나오기 전까지 알 수 없습니다).
+
 ### 서비스 연결: 실제 데이터 실험 모델 (2026-10-23)
 - `ml/train_real.py`가 `ml/data/*.csv`로 시장 정보 없는 입력 집합(base+connections+physical)을 학습해 `real-model.joblib`, `real-history.json`(마번별 착순·기수/조교사별 3위 이내 기록, 학습 마감일까지), `real-model-report.json`(시간순 홀드아웃 지표·시장 기준선)을 만듭니다. Docker 빌드가 `--if-present`로 실행하므로 CSV가 없으면 합성 모델만 제공됩니다.
 - FastAPI `POST /predict/real`: Spring이 경주일·거리·출주마의 마번·부담중량·마체중·게이트·생년월일·성별·기수명·조교사명을 보내면, ML 서비스가 **경주일 이전** 보존 이력만으로 입력을 만들어 점수를 냅니다. 모델이 없으면 503.

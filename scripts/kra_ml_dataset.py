@@ -82,6 +82,7 @@ def collect(meet, start, end, max_calls, all_days):
     print(f'수집 완료: 새로 받은 날짜 {fetched}개 (호출 {calls}회), 이미 보존된 날짜 {skipped}개, 남은 날짜 {remaining}개')
     if remaining:
         print('남은 날짜는 같은 명령을 다시 실행하면 이어서 받습니다(개발계정 호출 한도 주의).')
+    return {'fetched': fetched, 'skipped': skipped, 'remaining': remaining, 'calls': calls}
 
 
 def load_days(meet):
