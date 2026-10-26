@@ -153,6 +153,15 @@ def bounded_race(value):
     return value
 
 
+def meet_mismatch(requested, observed):
+    # Only short Korean venue labels or venue codes are safe to echo. Never
+    # print an arbitrary provider field that could contain an echoed key/URL.
+    safe = observed if re.fullmatch(r'[가-힣 ]{1,20}|[1-4]', observed or '') else '(미인식 표기)'
+    expected = {'1': '서울', '2': '제주', '3': '부산경남'}[requested]
+    return (f'요청한 경마장과 다른 자료가 반환되었습니다. 요청: {requested} ({expected}), '
+            f'응답 meet: {safe!r}. 표기 확인 전에는 저장·DB 반영하지 않습니다.')
+
+
 def download(key, filters, max_pages, preview=False):
     pages, rows, seen = [], [], set()
     total = None
@@ -174,7 +183,7 @@ def download(key, filters, max_pages, preview=False):
             if row['rcDate'] != filters['rc_date']:
                 raise KraError('요청한 날짜와 다른 자료가 반환되었습니다.')
             if row['meet'] != {'1': '서울', '2': '제주', '3': '부산경남'}[filters['meet']]:
-                raise KraError('요청한 경마장과 다른 자료가 반환되었습니다. 응답의 경마장 표기를 확인하세요.')
+                raise KraError(meet_mismatch(filters['meet'], row['meet']))
             if 'rc_no' in filters and row['rcNo'] != str(filters['rc_no']):
                 raise KraError('요청한 경주번호와 다른 자료가 반환되었습니다.')
             seen.add(identity)

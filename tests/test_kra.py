@@ -132,6 +132,21 @@ class KraTests(unittest.TestCase):
                 kra.configure()
         self.assertFalse(kra.STATE.exists())
 
+    def test_mismatched_meet_reports_label_without_saving_or_echoing_secrets(self):
+        for label in ['영남', '부경', '부산경남 ', '서울', KEY, 'https://example.com/' + KEY, '부산\n경남']:
+            with self.subTest(label=label), patch.object(kra, 'request_page', return_value=response().replace('서울', label)):
+                with self.assertRaises(kra.KraError) as caught:
+                    kra.download(KEY, {**FILTERS, 'meet': '3'}, 1)
+                message = str(caught.exception)
+                self.assertIn('요청: 3 (부산경남)', message)
+                self.assertIn('응답 meet:', message)
+                if label in ['영남', '부경', '부산경남 ', '서울']:
+                    self.assertIn(repr(label), message)
+                else:
+                    self.assertIn('(미인식 표기)', message)
+                self.assertNotIn(KEY, message)
+                self.assertFalse(kra.STATE.exists())
+
 
 if __name__ == '__main__':
     unittest.main()
