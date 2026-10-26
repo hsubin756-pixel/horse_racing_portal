@@ -14,8 +14,72 @@ import sys
 from kra import ENDPOINT, MAX_BYTES, PAGE_SIZE, MEETS, MEET_CODES, KraError, parse_page
 
 SOURCE = 'KRA_API214_1'
-# 구간·코너 필드의 의미(누적/구간)가 경마장마다 다르다고 안내되어 있어, 서울 외에는 확인된 결승 기록만 저장합니다(원본 전체는 raw_json 보관).
-DETAIL_MEETS = {'1'}
+
+
+def sectionals(row, meet, distance, field, finish, finish_time):
+    """Store elapsed time from start; Jeju G times are remaining section times.
+
+    Shared distances (e.g. Jeju 800m S1F/G3F) merge missing values, never
+    discard a conflicting rank/time. Zero is unavailable, not a recorded time.
+    """
+    points = {}
+
+    def add(where, time_key, rank_key, remaining=False):
+        seconds = number(row, time_key, Decimal('.01'), finish_time, True, 2)
+        position = number(row, rank_key, 1, field, True)
+        if seconds is None and position is None:
+            return
+        if not 0 < where < distance:
+            raise KraError(f'{time_key}: 경주 거리 밖의 구간 기록입니다.')
+        if remaining and seconds is not None:
+            seconds = finish_time - seconds
+        if seconds is not None and not 0 < seconds < finish_time:
+            raise KraError(f'{time_key}: 누적 시간이 올바르지 않습니다.')
+        old_position, old_seconds = points.get(where, (None, None))
+        if any(a is not None and b is not None and a != b for a, b in ((old_position, position), (old_seconds, seconds))):
+            raise KraError('동일 거리의 구간 기록이 충돌합니다.')
+        points[where] = (old_position if old_position is not None else position,
+                         old_seconds if old_seconds is not None else seconds)
+
+    if meet == '1':
+        add(200, 'seS1fAccTime', 'sjS1fOrd')
+        for furlongs in (3, 1):
+            add(distance - furlongs * 200, f'seG{furlongs}fAccTime', f'sjG{furlongs}fOrd')
+    elif meet == '2':
+        add(200, 'jeS1fTime', 'sjS1fOrd')
+        for furlongs in (3, 1):
+            add(distance - furlongs * 200, f'jeG{furlongs}fTime', f'sjG{furlongs}fOrd', remaining=True)
+    elif meet == '3':
+        add(200, 'buS1fAccTime', 'buS1fOrd')
+        for furlongs in (8, 6, 4, 3, 2, 1):
+            add(distance - furlongs * 200, f'buG{furlongs}fAccTime', f'buG{furlongs}fOrd')
+        for furlongs in (3, 2, 1):
+            remaining = number(row, f'bu_{furlongs}fGTime', Decimal('.01'), finish_time, True, 2)
+            elapsed = points.get(distance - furlongs * 200, (None, None))[1]
+            if remaining is not None and elapsed is not None and remaining + elapsed != finish_time:
+                raise KraError('부산경남 구간 시간과 누적 시간이 일치하지 않습니다.')
+    points[distance] = (finish, finish_time)
+    previous = Decimal('0')
+    for _, (_, seconds) in sorted(points.items()):
+        if seconds is not None:
+            if seconds <= previous:
+                raise KraError('거리별 누적 시간이 증가하지 않습니다.')
+            previous = seconds
+    corners = []
+    previous = Decimal('0')
+    # Jeju 3C/4C elapsed times verified against 800m response. Nonzero
+    # Jeju 1C/2C times remain in raw_json pending evidence from longer races.
+    for corner in (range(1, 5) if meet == '1' else (3, 4) if meet == '2' else ()):
+        key = f'se_{corner}cAccTime' if meet == '1' else f'je_{corner}cTime'
+        seconds = number(row, key, Decimal('.01'), finish_time, True, 2)
+        position = number(row, f'sj_{corner}cOrd', 1, field, True)
+        if seconds is not None:
+            if seconds <= previous or seconds >= finish_time:
+                raise KraError('코너 누적 시간이 올바르지 않습니다.')
+            previous = seconds
+        if seconds is not None or position is not None:
+            corners.append((corner, position, seconds))
+    return points, corners
 
 
 def text(row, key, max_length=100, optional=False):
@@ -142,34 +206,7 @@ def prepare(rows, retrieved):
                 body, change = map(int, match.groups())
                 if not 200 <= body <= 800 or not -100 <= change <= 100:
                     raise KraError('마체중·증감이 지원 범위를 벗어났습니다.')
-            points = {}
-            for where, time_key, ord_key in [(200, 'seS1fAccTime', 'sjS1fOrd'),
-                    (distance - 600, 'seG3fAccTime', 'sjG3fOrd'),
-                    (distance - 200, 'seG1fAccTime', 'sjG1fOrd')] if meet in DETAIL_MEETS else []:
-                seconds = number(r, time_key, Decimal('.01'), finish_time, True, 2)
-                position = number(r, ord_key, 1, field, True)
-                if seconds is not None or position is not None:
-                    if where in points and points[where] != (position, seconds):
-                        raise KraError('동일 거리의 구간 기록이 충돌합니다.')
-                    points[where] = (position, seconds)
-            points[distance] = (finish, finish_time)
-            previous = Decimal('0')
-            for where, (_, seconds) in sorted(points.items()):
-                if seconds is not None:
-                    if seconds <= previous:
-                        raise KraError('거리별 누적 시간이 증가하지 않습니다.')
-                    previous = seconds
-            corners = []
-            previous = Decimal('0')
-            for corner in (range(1, 5) if meet in DETAIL_MEETS else ()):
-                seconds = number(r, f'se_{corner}cAccTime', Decimal('.01'), finish_time, True, 2)
-                position = number(r, f'sj_{corner}cOrd', 1, field, True)
-                if seconds is not None:
-                    if seconds <= previous or seconds >= finish_time:
-                        raise KraError('코너 누적 시간이 올바르지 않습니다.')
-                    previous = seconds
-                if seconds is not None or position is not None:
-                    corners.append((corner, position, seconds))
+            points, corners = sectionals(r, meet, distance, field, finish, finish_time)
             race['entries'].append({'horse': horse, 'name': text(r, 'hrName'), 'sex': sex,
                 'birth': birthday.isoformat(), 'number': num, 'finish': finish, 'time': finish_time,
                 'jockey': identifier(r, 'jkNo'), 'jockey_name': text(r, 'jkName'),
@@ -202,7 +239,7 @@ def insert(table, data, condition='@new_race=1'):
     return f"INSERT INTO {table} ({','.join(data)}) SELECT {','.join(literal(v) for v in data.values())} WHERE {condition};"
 
 
-def sql_plan(races):
+def sql_plan(races, refresh_sectionals=False):
     statements = ["SET SESSION time_zone='+00:00';",
         "CREATE TEMPORARY TABLE kra_assertion (ok INT NOT NULL CHECK(ok=1));",
         "INSERT INTO kra_assertion VALUES (COALESCE(GET_LOCK('kra_result_import',10),0));",
@@ -222,6 +259,9 @@ def sql_plan(races):
             'UPDATE race SET ' + ','.join(f'{k}={literal(v)}' for k, v in {'name': race['name'], 'race_date': race['date'], 'distance': race['distance'],
                 'venue': race['venue'], 'surface': race['surface'], 'race_class': race['class'], 'weather': race['weather'], 'going': race['going'], 'status': 'OFFICIAL', 'source': SOURCE}.items()) + ' WHERE id=@rid AND @planned=1;',
             f'SET @rid=(SELECT id FROM race WHERE kra_id={key});']
+        if refresh_sectionals:
+            statements += [f'INSERT INTO kra_assertion VALUES (IF(@new_race=0 AND (SELECT COUNT(*) FROM entry WHERE race_id=@rid)={len(race["entries"])},1,0));']
+            statements += [f"INSERT INTO kra_assertion VALUES (EXISTS(SELECT 1 FROM race WHERE id=@rid AND source={literal(SOURCE)} AND distance={race['distance']} AND race_date={literal(race['date'])} AND status='OFFICIAL'));" ]
         for entry in race['entries']:
             for kind, role, var in [('JOCKEY', 'jockey', '@jid'), ('TRAINER', 'trainer', '@tid')]:
                 source_id = literal(entry[role])
@@ -240,20 +280,26 @@ def sql_plan(races):
                 'odds_as_of': race['retrieved'] if entry['odds'] is not None else None}
             statements += [f"INSERT INTO entry(race_id,horse_id,jockey_id,trainer_id,{','.join(values)}) SELECT @rid,@hid,@jid,@tid,{','.join(literal(v) for v in values.values())} WHERE @new_race=1;",
                 'SET @eid=(SELECT id FROM entry WHERE race_id=@rid AND horse_id=@hid);']
+            if refresh_sectionals:
+                statements += [f'INSERT INTO kra_assertion VALUES (EXISTS(SELECT 1 FROM entry WHERE id=@eid AND number={entry["number"]} AND finish_position={entry["finish"]} AND time_seconds={literal(entry["time"])}));']
+                for table in ('sectional', 'sectional_marker'):
+                    statements += [f'INSERT INTO kra_assertion VALUES (NOT EXISTS(SELECT 1 FROM {table} WHERE entry_id=@eid AND source<>{literal(SOURCE)}));',
+                                   f'DELETE FROM {table} WHERE entry_id=@eid;']
+            condition = '1=1' if refresh_sectionals else '@new_race=1'
             for distance, (position, seconds) in sorted(entry['points'].items()):
-                statements.append('INSERT INTO sectional(entry_id,distance,position,cumulative_seconds,source) SELECT @eid,' + ','.join(literal(v) for v in (distance, position, seconds, SOURCE)) + ' WHERE @new_race=1;')
+                statements.append('INSERT INTO sectional(entry_id,distance,position,cumulative_seconds,source) SELECT @eid,' + ','.join(literal(v) for v in (distance, position, seconds, SOURCE)) + f' WHERE {condition};')
             for corner, position, seconds in entry['corners']:
-                statements.append('INSERT INTO sectional_marker(entry_id,marker,position,cumulative_seconds,source) SELECT @eid,' + ','.join(literal(v) for v in (corner, position, seconds, SOURCE)) + ' WHERE @new_race=1;')
+                statements.append('INSERT INTO sectional_marker(entry_id,marker,position,cumulative_seconds,source) SELECT @eid,' + ','.join(literal(v) for v in (corner, position, seconds, SOURCE)) + f' WHERE {condition};')
         statements += ['INSERT INTO kra_race_import(race_id,fingerprint,raw_json,retrieved_at) SELECT @rid,' + ','.join(literal(race[k]) for k in ('fingerprint', 'raw', 'retrieved')) + ' WHERE @new_race=1;',
             "SELECT 'KRA_RESULT',@rid,@new_race;"]
     statements += ['COMMIT;', "DO RELEASE_LOCK('kra_result_import');"]
     return '\n'.join(statements)
 
 
-def apply(races, database='keiba'):
+def apply(races, database='keiba', refresh_sectionals=False):
     from backup import mysql
     try:
-        output = mysql(sql_plan(races), database)
+        output = mysql(sql_plan(races, refresh_sectionals), database)
     except subprocess.CalledProcessError:
         raise KraError('DB 반영을 취소했습니다. 최신 버전 실행 여부, 기존 경주와 원본 변경 여부, DB 상태를 확인하세요. 부분 변경은 롤백됩니다.') from None
     return [tuple(map(int, line.split('\t')[1:])) for line in output.splitlines() if line.startswith('KRA_RESULT\t')]
@@ -263,18 +309,21 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('directory', help='kra.py로 받은 results-... 폴더')
     parser.add_argument('--apply', action='store_true', help='검증 후 로컬 DB에 반영 (생략하면 미리보기)')
+    parser.add_argument('--refresh-sectionals', action='store_true', help='동일 원본으로 이미 반영된 경주의 구간 자료만 갱신 (--apply와 함께 실행)')
     args = parser.parse_args()
     try:
         races = load_archive(args.directory)
         print(f"검증 완료: {', '.join(sorted({r['venue'] for r in races}))} {len(races)}경주 / {sum(len(r['entries']) for r in races)}두 출전")
         for race in races:
             print(f"{race['date']} · {race['name']} · {len(race['entries'])}두")
-        print('단승 배당을 반영합니다(구간·코너 기록은 서울만). 공식 인기 순위는 미제공, plcOdds는 원본에 보관합니다.')
+        print('단승 배당·경마장별 구간 기록을 반영합니다(제주 코너는 3·4코너). 공식 인기 순위는 미제공, plcOdds는 원본에 보관합니다.')
+        if args.refresh_sectionals:
+            print('구간 갱신 모드: 기존 경주·출전 정보와 원본이 일치할 때 구간·코너만 갱신합니다.')
         if not args.apply:
             print('미리보기입니다. DB에 반영하려면 같은 명령 끝에 --apply를 붙이세요.')
             return 0
-        for race_id, created in apply(races):
-            print(('새 경주 반영' if created else '동일 원본: 중복 반영 생략') + f': http://localhost:5173/races/{race_id}')
+        for race_id, created in apply(races, refresh_sectionals=args.refresh_sectionals):
+            print(('구간 자료 갱신' if args.refresh_sectionals else '새 경주 반영' if created else '동일 원본: 중복 반영 생략') + f': http://localhost:5173/races/{race_id}')
     except (KraError, OSError, ValueError, TypeError, KeyError) as exc:
         print(str(exc) if isinstance(exc, KraError) else '다운로드 파일 형식·경로·권한을 확인하세요. DB에 반영하지 못했습니다.', file=sys.stderr)
         return 1

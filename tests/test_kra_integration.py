@@ -13,7 +13,7 @@ from backup import mysql
 import kra_import as importer
 from kra import KraError
 from test_catalog import request
-from test_kra_import import sample_rows, RETRIEVED
+from test_kra_import import sample_rows, sectional_rows, RETRIEVED
 
 
 class KraIntegrationTests(unittest.TestCase):
@@ -69,6 +69,10 @@ class KraIntegrationTests(unittest.TestCase):
         for meet, code in [('제주', '2'), ('부경', '3')]:
             with self.subTest(meet=meet):
                 rows = sample_rows(meet=meet, prefix=self.prefix)
+                for row in rows:
+                    for key in list(row):
+                        if key.startswith('sj'):
+                            row[key] = '0'
                 plan = importer.prepare(rows, RETRIEVED)
                 race_id, created = importer.apply(plan)[0]
                 self.assertEqual(created, 1)
@@ -85,6 +89,43 @@ class KraIntegrationTests(unittest.TestCase):
                 self.assertEqual(mysql(f'SELECT kra_id FROM race WHERE id={race_id};', 'keiba').strip(), f'{code}:20100101:91')
                 raw = json.loads(mysql(f'SELECT raw_json FROM kra_race_import WHERE race_id={race_id};', 'keiba'))
                 self.assertEqual(raw[0]['meet'], meet)
+
+    def test_refresh_sectionals_preserves_race_and_rejects_changed_source(self):
+        for meet in ('제주', '부경'):
+            with self.subTest(meet=meet):
+                plan = importer.prepare(sectional_rows(meet, self.prefix), RETRIEVED)
+                old = copy.deepcopy(plan)
+                for entry in old[0]['entries']:
+                    entry['points'] = {old[0]['distance']: (entry['finish'], entry['time'])}
+                    entry['corners'] = []
+                rid = importer.apply(old)[0][0]
+                before = request(f'/races/{rid}')[1]
+                self.assertEqual(importer.apply(plan, refresh_sectionals=True), [(rid, 0)])
+                self.assertEqual(importer.apply(plan, refresh_sectionals=True), [(rid, 0)])
+                self.assertEqual(request(f'/races/{rid}')[1], before)
+                runs = request(f'/races/{rid}/sectionals')[1]
+                self.assertEqual(runs[0]['style'], '선행')
+                self.assertEqual(runs[0]['last600'], 50.3 if meet == '제주' else 38.1)
+                self.assertEqual(len(runs[0]['points']), 3 if meet == '제주' else 6)
+                self.assertEqual(len(runs[0]['markers']), 2 if meet == '제주' else 0)
+                # Changed raw source cannot be silently reinterpreted.
+                changed = sectional_rows(meet, self.prefix); changed[0]['winOdds'] = '5.0'
+                with self.assertRaises(KraError):
+                    importer.apply(importer.prepare(changed, RETRIEVED), refresh_sectionals=True)
+                self.assertEqual(request(f'/races/{rid}/sectionals')[1], runs)
+                # A foreign-source marker on the last horse rolls back changes to the first.
+                eid = mysql(f'SELECT id FROM entry WHERE race_id={rid} ORDER BY number DESC LIMIT 1;', 'keiba').strip()
+                mysql(f"UPDATE sectional SET source='manual_test' WHERE entry_id={eid};", 'keiba')
+                snapshot = request(f'/races/{rid}/sectionals')[1]
+                with self.assertRaises(KraError):
+                    importer.apply(plan, refresh_sectionals=True)
+                self.assertEqual(request(f'/races/{rid}/sectionals')[1], snapshot)
+
+    def test_refresh_requires_an_existing_import(self):
+        plan = importer.prepare(sectional_rows('부경', self.prefix), RETRIEVED)
+        with self.assertRaises(KraError):
+            importer.apply(plan, refresh_sectionals=True)
+        self.assertEqual(mysql("SELECT COUNT(*) FROM race WHERE kra_id='3:20100101:91';", 'keiba').strip(), '0')
 
     def test_whole_batch_rolls_back_when_existing_source_changes(self):
         original = importer.prepare(self.rows, RETRIEVED)

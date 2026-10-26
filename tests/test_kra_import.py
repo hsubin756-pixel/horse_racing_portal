@@ -32,6 +32,27 @@ def sample_rows(race_no=91, race_date='20100101', prefix='99000', meet='서울')
     return rows
 
 
+def sectional_rows(meet='제주', prefix='99000'):
+    """Synthetic two-horse races using the user's first two time samples.
+
+    Ranks/identities are synthetic; this is not a copy of the provider archive.
+    """
+    rows = sample_rows(meet=meet, prefix=prefix)
+    for i, row in enumerate(rows):
+        if meet == '제주':
+            row.update(rcDist='800', rcTime=['67.4', '68.6'][i], jeS1fTime=['17.1', '17.4'][i],
+                       jeG3fTime=['50.3', '51.2'][i], jeG1fTime=['18.1', '18.5'][i],
+                       je_3cTime=['17.1', '17.4'][i], je_4cTime=['32.4', '32.8'][i], sjG3fOrd='0')
+        else:
+            row.update(rcTime=['75.3', '78.3'][i], buS1fAccTime=['13.7', '14.5'][i], buS1fOrd=str(i+1))
+            for f, times in [(4, ['25.2','26.6']), (3, ['37.2','39.2']), (2, ['49.5','52']), (1, ['61.9','64.5'])]:
+                row[f'buG{f}fAccTime'] = times[i]
+                row[f'buG{f}fOrd'] = str(i+1)
+            for f, times in [(3, ['38.1','39.1']), (2, ['25.8','26.3']), (1, ['13.4','13.8'])]:
+                row[f'bu_{f}fGTime'] = times[i]
+    return rows
+
+
 def archive(folder, rows=None, meet='1'):
     rows = rows or sample_rows()
     root = ET.Element('response')
@@ -66,9 +87,14 @@ class KraImportTests(unittest.TestCase):
         self.assertNotIn('plcOdds', e)
         self.assertIn('"plcOdds":"1.7"', race['raw'])
 
-    def test_jeju_and_busan_keep_finish_and_odds_but_skip_unverified_sectionals(self):
+    def test_missing_other_track_sectionals_keep_finish_and_odds(self):
         for meet, code in (('제주', '2'), ('부산경남', '3')):
-            race = importer.prepare(sample_rows(meet=meet), RETRIEVED)[0]
+            rows = sample_rows(meet=meet)
+            for row in rows:
+                for key in list(row):
+                    if key.startswith('sj'):
+                        row[key] = '0'
+            race = importer.prepare(rows, RETRIEVED)[0]
             e = race['entries'][0]
             with self.subTest(meet=meet):
                 self.assertEqual((race['key'], race['venue'], race['surface']), (f'{code}:20100101:91', meet, '미제공'))
@@ -81,6 +107,25 @@ class KraImportTests(unittest.TestCase):
                 self.assertIn(importer.literal(meet), sql)
         seoul = importer.prepare(sample_rows(), RETRIEVED)[0]
         self.assertEqual((seoul['key'], seoul['surface']), ('1:20100101:91', '더트'))
+
+    def test_jeju_remaining_times_merge_800m_marker_and_busan_accumulated_times(self):
+        jeju = importer.prepare(sectional_rows(), RETRIEVED)[0]['entries'][0]
+        self.assertEqual(jeju['points'], {200: (1, Decimal('17.1')), 600: (1, Decimal('49.3')), 800: (1, Decimal('67.4'))})
+        self.assertEqual(jeju['corners'], [(3, 1, Decimal('17.1')), (4, 1, Decimal('32.4'))])
+        busan = importer.prepare(sectional_rows('부경'), RETRIEVED)[0]['entries'][0]
+        self.assertEqual(sorted(busan['points']), [200, 400, 600, 800, 1000, 1200])
+        self.assertEqual(busan['points'][600], (1, Decimal('37.2')))
+        self.assertEqual(busan['time'] - busan['points'][600][1], Decimal('38.1'))
+        self.assertEqual(busan['corners'], [])
+
+    def test_conflicting_or_impossible_track_sectionals_are_rejected(self):
+        for meet, changes in [('제주', {'jeG3fTime':'50.0'}), ('제주', {'sjG3fOrd':'2'}),
+                              ('제주', {'jeG1fTime':'67.4'}), ('제주', {'je_4cTime':'16'}),
+                              ('부경', {'buG6fAccTime':'1'}), ('부경', {'bu_3fGTime':'39'}),
+                              ('부경', {'buG3fAccTime':'24'})]:
+            rows = sectional_rows(meet); rows[0].update(changes)
+            with self.subTest(meet=meet, changes=changes), self.assertRaises(kra.KraError):
+                importer.prepare(rows, RETRIEVED)
 
     def test_rejects_ambiguous_results_and_invalid_sectionals(self):
         for updates in [

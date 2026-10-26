@@ -37,3 +37,23 @@ test('imported KRA-shaped records show provenance, independent odds, sectionals 
   execFileSync('python3',['../tests/kra_browser_fixture.py','clean',String(raceId)]);
  }
 });
+
+for(const [meet,last600] of [['제주','50.30초'],['부경','38.10초']]){
+ test(`${meet}: converted sectionals show final 600m and running style`,async({page})=>{
+  const {raceId}=JSON.parse(execFileSync('python3',['../tests/kra_browser_fixture.py','create',meet],{encoding:'utf8'}));
+  try{
+   await page.goto('/races/'+raceId);
+   await expect(page.locator('.run-detail')).toContainText(last600);
+   await expect(page.locator('.run-detail')).toContainText('선행');
+   if(meet==='제주'){
+    await expect(page.getByRole('region',{name:'코너별 통과 기록'})).toContainText('32.40초');
+   }else{
+    await expect(page.getByRole('region',{name:'코너별 통과 기록'})).toHaveCount(0);
+   }
+   await page.setViewportSize({width:375,height:812});
+   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBeTruthy();
+  }finally{
+   execFileSync('python3',['../tests/kra_browser_fixture.py','clean',String(raceId),meet]);
+  }
+ });
+}
