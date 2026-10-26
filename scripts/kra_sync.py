@@ -96,43 +96,69 @@ def print_issues(state):
         for race_no, result in task.get('races', {}).items():
             if result.get('error'):
                 print(f"- {label} {race_no}R / 보류: {result['error']}")
-                if '마체중' in result['error'] and task.get('archive'):
-                    print_weight_issues(task['archive'], meet, day, race_no)
+                field = 'wgHr' if '마체중' in result['error'] else result['error'].split(':', 1)[0]
+                if field in ('wgHr', 'ord', 'jkNo', 'rcDist') and task.get('archive'):
+                    print_archived_issues(task['archive'], meet, day, race_no, field)
                 found = True
     if not found:
         print('기록된 실패·보류 사유가 없습니다.')
 
 
-def print_weight_issues(directory, meet, day, race_no):
-    """Inspect only the archived numeric weight field, never credentials or raw rows."""
+def diagnostic_value(value):
+    """Only short numeric/Korean field values; exclude keys, URLs and control codes."""
+    return repr(value) if re.fullmatch(r'[0-9가-힣()\[\] .,+−–—?/\-]{0,40}', value) else '(비표준 문자 포함: 원문 미출력)'
+
+
+def print_archived_issues(directory, meet, day, race_no, field):
+    """Inspect allowlisted fields without interpreting non-finisher codes or writing data."""
     try:
         folder = Path(directory)
+        if (folder/'summary.json').stat().st_size > kra.MAX_BYTES:
+            raise ValueError()
         meta = json.loads((folder/'summary.json').read_text())
         if meta.get('source') != 'KRA_API214_1' or meta.get('filters',{}).get('meet') != meet or meta.get('filters',{}).get('rc_date') != day:
             raise ValueError()
         pages = meta['pages']
         if type(pages) is not int or not 1 <= pages <= 10:
             raise ValueError()
+        selected = []
         for page in range(1, pages+1):
             path = folder/f'page-{page}.xml'
             if path.stat().st_size > kra.MAX_BYTES:
                 raise ValueError()
             _, rows = kra.parse_page(path.read_text(),page)
             for row in rows:
+                if kra.MEET_CODES.get(row.get('meet')) != meet or row.get('rcDate') != day:
+                    raise ValueError()
                 if row.get('rcNo') != race_no:
                     continue
-                value = row.get('wgHr','').strip()
-                try:
-                    kra.parse_body_weight(value)
-                    continue
-                except kra.KraError:
-                    pass
-                safe = repr(value) if re.fullmatch(r'[0-9가-힣()\[\] .,+−–—?/\-]{0,40}',value) else '(비표준 문자 포함: 원문 미출력)'
-                number = row.get('chulNo','')
-                number = number if re.fullmatch(r'\d{1,2}',number) else '?'
-                print(f'  출전번호 {number} / wgHr={safe}')
+                selected.append(row)
+        if not selected:
+            raise ValueError()
+        invalid = []
+        for row in selected:
+            try:
+                if field == 'wgHr':
+                    kra.parse_body_weight(row.get(field, '').strip())
+                elif field == 'ord':
+                    imp.number(row, field, 1, len(selected))
+                elif field == 'rcDist':
+                    imp.number(row, field, 800, 4000)
+                elif field == 'jkNo':
+                    imp.identifier(row, field)
+                else:
+                    raise ValueError()
+            except kra.KraError:
+                invalid.append(row)
+        print(f'  {field} 검증 불통과 {len(invalid)}/{len(selected)}두 (최대 3두 표시)')
+        for row in invalid[:3]:
+            number = row.get('chulNo','')
+            number = number if re.fullmatch(r'[0-9]{1,2}',number) else '?'
+            fields = (field, 'ordBigo', 'rcTime') if field == 'ord' else (field,)
+            values = ' / '.join(f'{name}={diagnostic_value(row.get(name, ""))}' for name in fields)
+            print(f'  출전번호 {number} / {values}')
     except (OSError,ValueError,KeyError,kra.KraError):
-        print('  원본 마체중 확인 불가: 보관 폴더·형식을 확인하세요.')
+        print('  원본 필드 확인 불가: 보관 폴더·형식을 확인하세요.')
 
 
 def site_day(task, meet, day, key, budget, apply, retry):

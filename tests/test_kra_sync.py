@@ -86,6 +86,48 @@ class SyncTests(unittest.TestCase):
             self.assertNotIn(KEY,output.getvalue())
             self.assertNotIn(rows[0]['hrName'],output.getvalue())
 
+    def test_status_diagnoses_rank_distance_and_jockey_without_api_or_writes(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(sync,'STATE',Path(tmp)/'sync'), patch.object(kra,'load_key') as key, patch.object(kra,'request_page') as request, patch.object(sync.imp,'apply') as apply:
+            folder=Path(tmp)/'archive';folder.mkdir()
+            rows=sample_rows();rows[0].update(ord='99',ordBigo='주행중지',rcTime='0')
+            distance=sample_rows(race_no=92);distance[0]['rcDist']='0'
+            jockey=sample_rows(race_no=93);jockey[0]['jkNo']='000000';jockey[1]['jkNo']=KEY
+            archive(folder,rows+distance+jockey)
+            task={'archive':str(folder),'races':{str(n):{'error':f'{field}: 검증 오류'} for n,field in [(91,'ord'),(92,'rcDist'),(93,'jkNo')]}}
+            args=SimpleNamespace(start=date(2010,1,1),end=date(2010,1,1),meets=['1'],status=True,dry_run=False)
+            sync.STATE.mkdir();path=sync.job_path(args.start,args.end,args.meets)
+            path.write_text(json.dumps({'tasks':{'1:20100101':task}}))
+            before={p:p.read_bytes() for p in Path(tmp).rglob('*') if p.is_file()}
+            output=io.StringIO()
+            with contextlib.redirect_stdout(output):sync.run(args)
+            text=output.getvalue()
+            self.assertIn('ord 검증 불통과 1/2두',text)
+            self.assertIn("ord='99' / ordBigo='주행중지' / rcTime='0'",text)
+            self.assertIn("rcDist='0'",text);self.assertIn("jkNo='000000'",text)
+            self.assertIn('원문 미출력',text);self.assertNotIn(KEY,text)
+            self.assertNotIn(rows[0]['hrName'],text)
+            self.assertEqual(before,{p:p.read_bytes() for p in Path(tmp).rglob('*') if p.is_file()})
+            key.assert_not_called();request.assert_not_called();apply.assert_not_called()
+
+    def test_rank_diagnostics_bound_output_and_count_entire_race(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rows=[dict(sample_rows()[0],chulNo=str(i),ord='0') for i in range(1,7)]
+            archive(Path(tmp),rows)
+            output=io.StringIO()
+            with contextlib.redirect_stdout(output):sync.print_archived_issues(tmp,'1','20100101','91','ord')
+            self.assertIn('검증 불통과 6/6두',output.getvalue())
+            self.assertEqual(output.getvalue().count('출전번호'),3)
+
+    def test_diagnostics_reject_wrong_row_date_and_missing_archive(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rows=sample_rows();rows[0].update(rcDate='20100102',ord='99')
+            archive(Path(tmp),rows)
+            for folder in (tmp,str(Path(tmp)/'missing')):
+                output=io.StringIO()
+                with contextlib.redirect_stdout(output):sync.print_archived_issues(folder,'1','20100101','91','ord')
+                self.assertIn('원본 필드 확인 불가',output.getvalue())
+                self.assertNotIn("ord='99'",output.getvalue())
+
 
 class FailureAndTrainingBudgetTests(unittest.TestCase):
     def test_api155_page_budget_counts_pages_and_resumes(self):
