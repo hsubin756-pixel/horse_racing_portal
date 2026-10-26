@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import kra_catalog as kc  # noqa: E402
-from kra import KraError, STATE, load_key, private_write  # noqa: E402
+from kra import KraError, STATE, load_key, private_write, parse_body_weight  # noqa: E402
 
 MEETS = {'1': '서울', '2': '제주', '3': '부산경남'}
 RACE_DAYS = {'1': (5, 6), '2': (4, 5), '3': (4, 6)}
@@ -122,8 +122,11 @@ EXTRA = ['jockey', 'trainer', 'carried_weight', 'win_odds', 'place_odds', 'gate'
 
 
 def weight_of(value):
-    match = re.fullmatch(r'(\d{3})\s*\(\s*[+-]?\d+\s*\)', (value or '').strip())
-    return int(match.group(1)) if match else ''
+    try:
+        body, _ = parse_body_weight(value)
+        return body if body is not None else ''
+    except KraError:
+        return ''
 
 
 def decimal_or_blank(value, low, high):

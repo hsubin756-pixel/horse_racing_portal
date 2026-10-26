@@ -122,9 +122,11 @@ def print_weight_issues(directory, meet, day, race_no):
                 if row.get('rcNo') != race_no:
                     continue
                 value = row.get('wgHr','').strip()
-                match = re.fullmatch(r'(\d+)\s*\(\s*([+-]?\d+)\s*\)',value)
-                if value in ('','-','0') or (match and 200 <= int(match[1]) <= 800 and -100 <= int(match[2]) <= 100):
+                try:
+                    kra.parse_body_weight(value)
                     continue
+                except kra.KraError:
+                    pass
                 safe = repr(value) if re.fullmatch(r'[0-9가-힣()\[\] .,+−–—?/\-]{0,40}',value) else '(비표준 문자 포함: 원문 미출력)'
                 number = row.get('chulNo','')
                 number = number if re.fullmatch(r'\d{1,2}',number) else '?'

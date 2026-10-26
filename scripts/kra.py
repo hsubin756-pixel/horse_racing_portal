@@ -49,6 +49,21 @@ def normalize_key(value):
     return key
 
 
+def parse_body_weight(value):
+    """Return kg and optional change; an empty change is unknown, never zero."""
+    value = (value or '').strip()
+    if value in ('', '-', '0'):
+        return None, None
+    match = re.fullmatch(r'(\d+)\s*\(\s*([+-]?\d+)?\s*\)', value)
+    if not match or len(value) > 30:
+        raise KraError('마체중·증감 표기를 확인하세요.')
+    body = int(match[1])
+    change = int(match[2]) if match[2] is not None else None
+    if not 200 <= body <= 800 or (change is not None and not -100 <= change <= 100):
+        raise KraError('마체중·증감이 지원 범위를 벗어났습니다.')
+    return body, change
+
+
 def private_write(path, content):
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     fd, tmp = tempfile.mkstemp(prefix='.kra-', dir=path.parent)

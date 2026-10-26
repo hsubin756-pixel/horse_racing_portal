@@ -20,6 +20,28 @@ import kra_sync
 
 
 class KraIntegrationTests(unittest.TestCase):
+    def test_retry_archived_empty_weight_change_without_network(self):
+        with tempfile.TemporaryDirectory() as folder:
+            rows = sample_rows(prefix=self.prefix)
+            rows[0]['wgHr'] = '488()'
+            rows[1]['wgHr'] = '502(0)'
+            archive(Path(folder), rows)
+            task = {'archive':folder, 'site':'보류 있음',
+                    'races':{'91':{'status':'보류','error':'마체중·증감 표기를 확인하세요.'}}}
+            budget = kra_sync.Budget(0)
+            kra_sync.site_day(task,'1',date(2010,1,1),'unused',budget,True,True)
+            rid = task['races']['91']['raceId']
+            entries = request(f'/races/{rid}')[1]['entries']
+            by_number = {entry['number']:entry for entry in entries}
+            self.assertEqual(by_number[1]['bodyWeight'],488)
+            self.assertIsNone(by_number[1]['weightChange'])
+            self.assertEqual(by_number[2]['weightChange'],0)
+            self.assertEqual(task['site'],'반영 완료')
+            self.assertNotIn('error',task['races']['91'])
+            self.assertEqual(budget.calls,0)
+            kra_sync.site_day(task,'1',date(2010,1,1),'unused',budget,True,True)
+            self.assertEqual(task['races']['91']['raceId'],rid)
+
     def test_sync_imports_valid_races_and_records_unsupported_race(self):
         with tempfile.TemporaryDirectory() as folder:
             good = sample_rows(prefix=self.prefix)

@@ -11,7 +11,7 @@ import re
 import subprocess
 import sys
 
-from kra import ENDPOINT, MAX_BYTES, PAGE_SIZE, MEETS, MEET_CODES, KraError, parse_page
+from kra import ENDPOINT, MAX_BYTES, PAGE_SIZE, MEETS, MEET_CODES, KraError, parse_page, parse_body_weight
 
 SOURCE = 'KRA_API214_1'
 
@@ -197,15 +197,7 @@ def prepare(rows, retrieved):
             if sex not in ('수', '암', '거'):
                 raise KraError('지원하지 않는 성별 표기입니다.')
             finish_time = number(r, 'rcTime', 1, 1000, places=2)
-            weight = text(r, 'wgHr', 30, True)
-            body = change = None
-            if weight not in ('', '-', '0'):
-                match = re.fullmatch(r'(\d+)\s*\(\s*([+-]?\d+)\s*\)', weight)
-                if not match:
-                    raise KraError('마체중·증감 표기를 확인하세요.')
-                body, change = map(int, match.groups())
-                if not 200 <= body <= 800 or not -100 <= change <= 100:
-                    raise KraError('마체중·증감이 지원 범위를 벗어났습니다.')
+            body, change = parse_body_weight(text(r, 'wgHr', 30, True))
             points, corners = sectionals(r, meet, distance, field, finish, finish_time)
             race['entries'].append({'horse': horse, 'name': text(r, 'hrName'), 'sex': sex,
                 'birth': birthday.isoformat(), 'number': num, 'finish': finish, 'time': finish_time,

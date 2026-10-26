@@ -23,6 +23,13 @@ def day(date_text, rows):
 
 
 class DatasetTests(unittest.TestCase):
+    def test_weight_with_unknown_change_is_still_a_known_training_weight(self):
+        self.assertEqual(ds.weight_of('488()'), 488)
+        self.assertEqual(ds.weight_of('502(0)'), 502)
+        self.assertEqual(ds.weight_of('502(-2)'), 502)
+        for value in ('0', '', 'unknown', '801()', '500(+)'):
+            self.assertEqual(ds.weight_of(value), '')
+
     def test_export_limits_cached_days_to_requested_period(self):
         days = [day(d, [starter(1, g, f'004423{g}', str(g)) for g in range(1, 5)])
                 for d in ('2024-12-31', '2025-01-04', '2025-12-28', '2026-01-01')]

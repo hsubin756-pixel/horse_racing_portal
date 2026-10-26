@@ -127,6 +127,15 @@ class KraImportTests(unittest.TestCase):
             with self.subTest(meet=meet, changes=changes), self.assertRaises(kra.KraError):
                 importer.prepare(rows, RETRIEVED)
 
+    def test_empty_weight_change_preserves_body_and_raw(self):
+        rows = sample_rows()
+        rows[0]['wgHr'] = '488()'
+        rows[1]['wgHr'] = '502(0)'
+        plan = importer.prepare(rows, RETRIEVED)[0]
+        self.assertEqual((plan['entries'][0]['body'], plan['entries'][0]['change']), (488, None))
+        self.assertEqual((plan['entries'][1]['body'], plan['entries'][1]['change']), (502, 0))
+        self.assertEqual(json.loads(plan['raw'])[0]['wgHr'], '488()')
+
     def test_rejects_ambiguous_results_and_invalid_sectionals(self):
         for updates in [
             {'ordBigo': '주행중지'}, {'ord': '99'}, {'rcTime': '0'}, {'hrNo': ''},
