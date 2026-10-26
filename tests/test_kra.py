@@ -32,10 +32,10 @@ class KraTests(unittest.TestCase):
     def test_body_weight_preserves_unknown_change_and_checks_bounds(self):
         for value, expected in [('488()', (488, None)), ('446( )', (446, None)),
                                 ('502(0)', (502, 0)), ('502(-2)', (502, -2)), ('502(+2)', (502, 2)),
-                                ('', (None, None)), ('-', (None, None)), ('0', (None, None))]:
+                                ('', (None, None)), ('-', (None, None)), ('0', (None, None)), ('()', (None, None))]:
             with self.subTest(value=value):
                 self.assertEqual(kra.parse_body_weight(value), expected)
-        for value in ['488(-)', '488(+)', '488', 'abc', '199()', '801()', '500(+101)', '500(-101)']:
+        for value in ['488(-)', '488(+)', '488', 'abc', '199()', '801()', '500(+101)', '500(-101)', '(+2)', '(-)', '0()']:
             with self.subTest(value=value), self.assertRaises(kra.KraError):
                 kra.parse_body_weight(value)
 

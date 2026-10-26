@@ -52,7 +52,7 @@ def normalize_key(value):
 def parse_body_weight(value):
     """Return kg and optional change; an empty change is unknown, never zero."""
     value = (value or '').strip()
-    if value in ('', '-', '0'):
+    if value in ('', '-', '0', '()'):
         return None, None
     match = re.fullmatch(r'(\d+)\s*\(\s*([+-]?\d+)?\s*\)', value)
     if not match or len(value) > 30:

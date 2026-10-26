@@ -23,6 +23,8 @@ class KraIntegrationTests(unittest.TestCase):
     def test_retry_non_finishers_preserves_entries_and_excludes_scratched_odds(self):
         with tempfile.TemporaryDirectory() as folder:
             rows = mixed_result_rows(prefix=self.prefix)
+            rows[3]['wgHr'] = '()'
+            rows[4]['wgHr'] = '()'
             archive(Path(folder), rows)
             task = {'archive':folder, 'site':'보류 있음',
                     'races':{'91':{'status':'보류','error':'ord: 지원 범위를 벗어남'}}}
@@ -39,6 +41,7 @@ class KraIntegrationTests(unittest.TestCase):
                 self.assertIsNone(entry['finishPosition']);self.assertIsNone(entry['timeSeconds'])
                 if state == 'SCRATCHED':
                     self.assertIsNone(entry['winOdds']);self.assertIsNone(entry['oddsRank'])
+                    self.assertIsNone(entry['bodyWeight']);self.assertIsNone(entry['weightChange'])
             self.assertEqual(by_number[1]['oddsRankTotal'],3)
             self.assertEqual(by_number[1]['oddsRank'],2)
             self.assertEqual(by_number[3]['oddsRank'],1)

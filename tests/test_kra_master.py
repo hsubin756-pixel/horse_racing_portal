@@ -94,9 +94,21 @@ class PeopleAndPlanTests(unittest.TestCase):
         trainer = km.prepare_person('TRAINER', TRAINER)
         self.assertEqual((trainer['debut'], trainer['profile']['winRateT']), ('2018-07-01', '12'))
         sql = km.sql_people([jockey, trainer], '2026-10-23 03:00:00')
-        self.assertIn("kind=CONVERT(0x4a4f434b4559 USING utf8mb4) AND kra_id IS NOT NULL AND CAST(kra_id AS UNSIGNED)=80618", sql)
+        self.assertIn("kind=CONVERT(0x4a4f434b4559 USING utf8mb4) AND kra_id REGEXP '^[0-9]+$' AND CAST(kra_id AS UNSIGNED)=80618", sql)
         self.assertIn('debut_date=', sql)
         self.assertEqual(sql.count("SELECT 'KRA_PERSON'"), 2)
+
+    def test_alphanumeric_jockey_is_matched_exactly_without_numeric_cast(self):
+        jockey=km.prepare_person('JOCKEY',dict(JOCKEY,jkNo='01Z234'))
+        sql=km.sql_people([jockey],'2026-10-23 03:00:00')
+        self.assertEqual(jockey['kra'],'01Z234')
+        self.assertIn('kra_id='+importer.literal('01Z234'),sql)
+        self.assertNotIn('CAST(kra_id',sql)
+        args=mock.Mock(meet='1',apply=False)
+        with mock.patch.object(km,'collect',side_effect=[([dict(JOCKEY,jkNo='01Z234'),dict(JOCKEY,jkNo='000001')],'2026-10-23 03:00:00'),([],'2026-10-23 03:00:00')]), mock.patch('builtins.print'):
+            km.command_people(args)
+        with mock.patch.object(km,'collect',return_value=([dict(JOCKEY,jkNo='01Z234')]*2,'2026-10-23 03:00:00')), mock.patch('builtins.print'), self.assertRaises(KraError):
+            km.command_people(args)
 
     def test_plan_skips_past_days_and_formats_start_time(self):
         today = date(2026, 10, 23)

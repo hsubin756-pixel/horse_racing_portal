@@ -172,6 +172,19 @@ class KraImportTests(unittest.TestCase):
         self.assertEqual((plan['entries'][1]['body'], plan['entries'][1]['change']), (502, 0))
         self.assertEqual(json.loads(plan['raw'])[0]['wgHr'], '488()')
 
+    def test_empty_weight_and_observed_jockey_id_preserve_missingness_and_identity(self):
+        rows = mixed_result_rows()
+        rows[0]['jkNo'] = '01Z234'
+        rows[3]['wgHr'] = '()'
+        plan = importer.prepare(rows, RETRIEVED)[0]
+        self.assertEqual(plan['entries'][0]['jockey'], '01Z234')
+        self.assertEqual((plan['entries'][3]['body'],plan['entries'][3]['change']), (None,None))
+        self.assertEqual(json.loads(plan['raw'])[3]['wgHr'], '()')
+        for key, value in [('jkNo','01z234'),('jkNo','01ZZ34'),('jkNo','01Z2345'),('jkNo','000000'),
+                           ('hrNo','01Z234'),('trNo','01Z234')]:
+            with self.subTest(key=key,value=value), self.assertRaises(kra.KraError):
+                importer.identifier({key:value},key)
+
     def test_rejects_ambiguous_results_and_invalid_sectionals(self):
         for updates in [
             {'ordBigo': '주행중지'}, {'ord': '99'}, {'rcTime': '0'}, {'hrNo': ''},

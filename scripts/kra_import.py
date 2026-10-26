@@ -128,6 +128,10 @@ def number(row, key, low, high, optional=False, places=0):
 
 def identifier(row, key):
     value = text(row, key, 16)
+    # Observed API214_1 jockey IDs: two digits, one uppercase ASCII letter, three digits.
+    # This is an opaque provider identifier, not an integer or a nationality code.
+    if key == 'jkNo' and re.fullmatch(r'[0-9]{2}[A-Z][0-9]{3}', value):
+        return value
     if not re.fullmatch(r'\d{1,16}', value) or int(value) == 0:
         raise KraError(f'{key}: 제공기관 식별번호를 확인하세요.')
     return value

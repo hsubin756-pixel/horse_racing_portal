@@ -27,6 +27,7 @@ class DatasetTests(unittest.TestCase):
         self.assertEqual(ds.weight_of('488()'), 488)
         self.assertEqual(ds.weight_of('502(0)'), 502)
         self.assertEqual(ds.weight_of('502(-2)'), 502)
+        self.assertEqual(ds.weight_of('()'), '')
         for value in ('0', '', 'unknown', '801()', '500(+)'):
             self.assertEqual(ds.weight_of(value), '')
 

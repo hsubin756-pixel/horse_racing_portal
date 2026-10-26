@@ -259,9 +259,12 @@ def prepare_person(kind, row):
 def sql_people(plans, retrieved):
     statements = []
     for plan in plans:
-        n = literal(kra_num(plan['kra']))
+        # Numeric IDs retain legacy leading-zero matching, but must not match
+        # the numeric prefix of an alphanumeric ID through MySQL CAST.
+        match = (f"kra_id REGEXP '^[0-9]+$' AND CAST(kra_id AS UNSIGNED)={literal(kra_num(plan['kra']))}"
+                 if re.fullmatch(r'[0-9]+', plan['kra']) else f"kra_id={literal(plan['kra'])}")
         source = SOURCES[plan['kind']]
-        statements += [f"SET @pid=(SELECT id FROM person WHERE kind={literal(plan['kind'])} AND kra_id IS NOT NULL AND CAST(kra_id AS UNSIGNED)={n} LIMIT 1);",
+        statements += [f"SET @pid=(SELECT id FROM person WHERE kind={literal(plan['kind'])} AND {match} LIMIT 1);",
                        'SET @created=(@pid IS NULL);',
                        insert('person', {'kind': plan['kind'], 'name': plan['name'], 'source': source, 'kra_id': plan['kra']}, '@pid IS NULL'),
                        f"SET @pid=COALESCE(@pid,(SELECT id FROM person WHERE kind={literal(plan['kind'])} AND kra_id={literal(plan['kra'])} LIMIT 1));",
@@ -279,12 +282,13 @@ def command_people(args):
             try:
                 plan = prepare_person(kind, row)
             except KraError as exc:
-                # Rows without a usable provider number (blank or non-numeric) cannot be matched, so they are reported and skipped.
+                # Report unusable identifiers; numeric and verified jockey formats are supported.
                 skipped.append(f"{kind} {clean_name(row.get('jkName') or row.get('trName')) or '(이름 없음)'}: {exc}")
                 continue
-            if (kind, kra_num(plan['kra'])) in seen:
+            identity = (kind, kra_num(plan['kra']) if re.fullmatch(r'[0-9]+', plan['kra']) else plan['kra'])
+            if identity in seen:
                 raise KraError(f'{kind} {plan["kra"]}: 응답에 같은 번호가 두 번 있습니다.')
-            seen.add((kind, kra_num(plan['kra'])))
+            seen.add(identity)
             plans.append(plan)
     jockeys = sum(p['kind'] == 'JOCKEY' for p in plans)
     print(f'{MEETS[args.meet]} 기수 {jockeys}명 · 조교사 {len(plans) - jockeys}명 준비, 번호가 없어 건너뜀 {len(skipped)}건')

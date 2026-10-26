@@ -18,6 +18,36 @@ RETRIEVED_SQL = '2026-10-23 03:00:00'
 
 
 class MasterIntegrationTests(unittest.TestCase):
+    def test_alphanumeric_jockey_does_not_alias_numeric_prefix_and_import_links_exactly(self):
+        # Reserve two otherwise unused provider IDs before creating synthetic data.
+        prefix=next((str(n) for n in range(90,100) if mysql(
+            f"SELECT COUNT(*) FROM person WHERE kind='JOCKEY' AND kra_id REGEXP '^[0-9]+$' AND CAST(kra_id AS UNSIGNED)={n};",'keiba').strip()=='0'),None)
+        self.assertIsNotNone(prefix)
+        alpha=prefix+'Z'+self.prefix[-3:];numeric='0000'+prefix
+        ids=','.join(importer.literal(v) for v in (alpha,numeric))
+        self.assertEqual(mysql(f"SELECT COUNT(*) FROM person WHERE kind='JOCKEY' AND kra_id IN ({ids});",'keiba').strip(),'0')
+        self.addCleanup(lambda:mysql(f"DELETE FROM kra_master_import WHERE kind='JOCKEY' AND subject IN ({ids});DELETE FROM person WHERE kind='JOCKEY' AND kra_id IN ({ids});",'keiba'))
+        plans=[km.prepare_person('JOCKEY',dict(JOCKEY,jkNo=k,jkName=name)) for k,name in [(alpha,'가상 문자 기수'),(numeric,'가상 숫자 기수')]]
+        mysql(km.sql_people(plans,RETRIEVED_SQL),'keiba')
+        self.assertEqual(mysql(f"SELECT COUNT(*) FROM person WHERE kind='JOCKEY' AND kra_id IN ({ids});",'keiba').strip(),'2')
+        before=mysql(f"SELECT id,kra_id,name FROM person WHERE kind='JOCKEY' AND kra_id IN ({ids}) ORDER BY id;",'keiba')
+        mysql(km.sql_people(plans,RETRIEVED_SQL),'keiba')
+        self.assertEqual(mysql(f"SELECT id,kra_id,name FROM person WHERE kind='JOCKEY' AND kra_id IN ({ids}) ORDER BY id;",'keiba'),before)
+        rows=sample_rows(prefix=self.prefix,race_no=98)
+        rows[0]['jkNo']=alpha;rows[0]['jkName']='가상 문자 기수'
+        key='1:20100101:98'
+        self.assertEqual(mysql(f"SELECT COUNT(*) FROM race WHERE kra_id='{key}';",'keiba').strip(),'0')
+        # LIFO cleanup removes references before the reserved people.
+        def clean_race():
+            rid=f"SELECT id FROM race WHERE kra_id='{key}'"
+            eid=f'SELECT id FROM entry WHERE race_id IN ({rid})'
+            mysql(f'DELETE FROM sectional_marker WHERE entry_id IN ({eid});DELETE FROM sectional WHERE entry_id IN ({eid});DELETE FROM entry WHERE race_id IN ({rid});DELETE FROM kra_race_import WHERE race_id IN ({rid});DELETE FROM race WHERE kra_id=\'{key}\';','keiba')
+        self.addCleanup(clean_race)
+        rid=importer.apply(importer.prepare(rows,RETRIEVED))[0][0]
+        entry=request(f'/races/{rid}')[1]['entries'][0]
+        person_id=int(mysql(f"SELECT id FROM person WHERE kind='JOCKEY' AND kra_id={importer.literal(alpha)};",'keiba').strip())
+        self.assertEqual(entry['jockeyId'],person_id)
+
     def setUp(self):
         self.prefix = '96' + str(random.randint(10000, 99999))
         self.names = [f'가상 조상 {self.prefix} {i}' for i in range(16)]
