@@ -133,19 +133,33 @@ class KraTests(unittest.TestCase):
         self.assertFalse(kra.STATE.exists())
 
     def test_mismatched_meet_reports_label_without_saving_or_echoing_secrets(self):
-        for label in ['영남', '부경', '부산경남 ', '서울', KEY, 'https://example.com/' + KEY, '부산\n경남']:
+        for label in ['영남', '부산경남 ', '서울', KEY, 'https://example.com/' + KEY, '부산\n경남']:
             with self.subTest(label=label), patch.object(kra, 'request_page', return_value=response().replace('서울', label)):
                 with self.assertRaises(kra.KraError) as caught:
                     kra.download(KEY, {**FILTERS, 'meet': '3'}, 1)
                 message = str(caught.exception)
                 self.assertIn('요청: 3 (부산경남)', message)
                 self.assertIn('응답 meet:', message)
-                if label in ['영남', '부경', '부산경남 ', '서울']:
+                if label in ['영남', '부산경남 ', '서울']:
                     self.assertIn(repr(label), message)
                 else:
                     self.assertIn('(미인식 표기)', message)
                 self.assertNotIn(KEY, message)
                 self.assertFalse(kra.STATE.exists())
+
+    def test_busan_alias_download_preserves_raw_and_rejects_wrong_request(self):
+        raw = response().replace('서울', '부경')
+        with patch.object(kra, 'request_page', return_value=raw), contextlib.redirect_stdout(io.StringIO()):
+            summary = kra.download(KEY, {**FILTERS, 'meet': '3'}, 1)
+            self.assertTrue(summary['complete'])
+            folder = next(kra.STATE.glob('results-*'))
+            self.assertIn('<meet>부경</meet>', (folder / 'page-1.xml').read_text())
+            for code in ('1', '2'):
+                with self.assertRaises(kra.KraError):
+                    kra.download(KEY, {**FILTERS, 'meet': code}, 1)
+        duplicate = response(total=2, count=2).replace('서울', '부산경남', 1).replace('서울', '부경').replace('0000002', '0000001')
+        with patch.object(kra, 'request_page', return_value=duplicate), self.assertRaisesRegex(kra.KraError, '중복'):
+            kra.download(KEY, {**FILTERS, 'meet': '3'}, 1)
 
 
 if __name__ == '__main__':

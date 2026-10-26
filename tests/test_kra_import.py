@@ -118,10 +118,13 @@ class KraImportTests(unittest.TestCase):
             folder = Path(name)
             meta = archive(folder)
             self.assertEqual(len(importer.load_archive(folder)[0]['entries']), 2)
-            for meet, name in (('2', '제주'), ('3', '부산경남')):
+            for meet, name in (('2', '제주'), ('3', '부산경남'), ('3', '부경')):
                 with self.subTest(meet=meet):
                     archive(folder, sample_rows(meet=name), meet)
-                    self.assertEqual(importer.load_archive(folder)[0]['venue'], name)
+                    plan = importer.load_archive(folder)[0]
+                    self.assertEqual(plan['venue'], importer.MEETS[meet])
+                    self.assertEqual(plan['key'], f'{meet}:20100101:91')
+                    self.assertEqual(json.loads(plan['raw'])[0]['meet'], name)
                     meta_wrong = json.loads((folder / 'summary.json').read_text())
                     meta_wrong['filters']['meet'] = '1'      # archive says Seoul but rows say Jeju/Busan
                     (folder / 'summary.json').write_text(json.dumps(meta_wrong))

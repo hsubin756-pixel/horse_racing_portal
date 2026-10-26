@@ -21,6 +21,9 @@ STATE = ROOT / '.runtime' / 'kra'
 ENDPOINT = 'https://apis.data.go.kr/B551015/API214_1/RaceDetailResult_1'
 PAGE_SIZE = 100
 MAX_BYTES = 4 * 1024 * 1024
+MEETS = {'1': '서울', '2': '제주', '3': '부산경남'}
+# API214_1 실제 응답에서 확인한 약칭. 원본 행은 변경하지 않습니다.
+MEET_CODES = {name: code for code, name in MEETS.items()} | {'부경': '3'}
 ERRORS = {
     '1': '제공기관의 처리 오류입니다. 잠시 후 다시 시도하세요.',
     '10': '조회 조건이 올바르지 않습니다.',
@@ -157,7 +160,7 @@ def meet_mismatch(requested, observed):
     # Only short Korean venue labels or venue codes are safe to echo. Never
     # print an arbitrary provider field that could contain an echoed key/URL.
     safe = observed if re.fullmatch(r'[가-힣 ]{1,20}|[1-4]', observed or '') else '(미인식 표기)'
-    expected = {'1': '서울', '2': '제주', '3': '부산경남'}[requested]
+    expected = MEETS[requested]
     return (f'요청한 경마장과 다른 자료가 반환되었습니다. 요청: {requested} ({expected}), '
             f'응답 meet: {safe!r}. 표기 확인 전에는 저장·DB 반영하지 않습니다.')
 
@@ -177,13 +180,13 @@ def download(key, filters, max_pages, preview=False):
         if len(batch) != expected:
             raise KraError('응답 건수가 전체 건수와 일치하지 않습니다. 불완전한 다운로드를 중단했습니다.')
         for row in batch:
-            identity = tuple(row.get(k, '') for k in ('meet', 'rcDate', 'rcNo', 'hrNo'))
+            identity = (MEET_CODES.get(row.get('meet')), *(row.get(k, '') for k in ('rcDate', 'rcNo', 'hrNo')))
+            if MEET_CODES.get(row.get('meet')) != filters['meet']:
+                raise KraError(meet_mismatch(filters['meet'], row.get('meet', '')))
             if not all(identity) or identity in seen:
                 raise KraError('경주·말 식별번호가 누락되거나 중복됐습니다.')
             if row['rcDate'] != filters['rc_date']:
                 raise KraError('요청한 날짜와 다른 자료가 반환되었습니다.')
-            if row['meet'] != {'1': '서울', '2': '제주', '3': '부산경남'}[filters['meet']]:
-                raise KraError(meet_mismatch(filters['meet'], row['meet']))
             if 'rc_no' in filters and row['rcNo'] != str(filters['rc_no']):
                 raise KraError('요청한 경주번호와 다른 자료가 반환되었습니다.')
             seen.add(identity)

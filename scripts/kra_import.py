@@ -11,11 +11,9 @@ import re
 import subprocess
 import sys
 
-from kra import ENDPOINT, MAX_BYTES, PAGE_SIZE, KraError, parse_page
+from kra import ENDPOINT, MAX_BYTES, PAGE_SIZE, MEETS, MEET_CODES, KraError, parse_page
 
 SOURCE = 'KRA_API214_1'
-MEETS = {'1': '서울', '2': '제주', '3': '부산경남'}
-MEET_CODES = {name: code for code, name in MEETS.items()}
 # 구간·코너 필드의 의미(누적/구간)가 경마장마다 다르다고 안내되어 있어, 서울 외에는 확인된 결승 기록만 저장합니다(원본 전체는 raw_json 보관).
 DETAIL_MEETS = {'1'}
 
@@ -90,7 +88,7 @@ def load_archive(folder):
             raise KraError('원본 페이지의 전체 건수가 맞지 않습니다.')
         rows.extend(batch)
     for row in rows:
-        if row.get('meet') != MEETS[filters['meet']] or row.get('rcDate') != filters['rc_date']:
+        if MEET_CODES.get(row.get('meet')) != filters['meet'] or row.get('rcDate') != filters['rc_date']:
             raise KraError('요청한 경마장·날짜와 원본이 다릅니다.')
         if 'rc_no' in filters and str(number(row, 'rcNo', 1, 99)) != str(filters['rc_no']):
             raise KraError('요청한 경주번호와 원본이 다릅니다.')

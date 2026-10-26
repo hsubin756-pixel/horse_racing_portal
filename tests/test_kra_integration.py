@@ -66,7 +66,7 @@ class KraIntegrationTests(unittest.TestCase):
         self.assertEqual(raw[0]['plcOdds'], '1.7')
 
     def test_other_tracks_persist_finish_without_inventing_sectionals(self):
-        for meet, code in [('제주', '2'), ('부산경남', '3')]:
+        for meet, code in [('제주', '2'), ('부경', '3')]:
             with self.subTest(meet=meet):
                 rows = sample_rows(meet=meet, prefix=self.prefix)
                 plan = importer.prepare(rows, RETRIEVED)
