@@ -61,6 +61,19 @@ class SyncTests(unittest.TestCase):
             args=SimpleNamespace(start=date(2025,1,1),end=date(2025,1,3),meets=['1','2','3'],status=False,dry_run=True)
             sync.run(args);key.assert_not_called();self.assertFalse(sync.STATE.exists())
 
+    def test_status_prints_stage_and_race_errors_without_loading_key(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(sync,'STATE',Path(tmp)), patch.object(kra,'load_key') as key:
+            args=SimpleNamespace(start=date(2025,1,1),end=date(2025,1,1),meets=['3'],status=True,dry_run=False)
+            path=sync.job_path(args.start,args.end,args.meets)
+            state={'calls':25,'tasks':{'3:20250101':{'site':'보류 있음','training':'실패','training_error':'API 호출 실패',
+                   'races':{'2':{'error':'착순 불완전'}}}}}
+            path.write_text(json.dumps(state))
+            before=path.read_bytes();output=io.StringIO()
+            with contextlib.redirect_stdout(output):sync.run(args)
+            self.assertIn('20250101 부산경남 / 학습 자료: API 호출 실패',output.getvalue())
+            self.assertIn('20250101 부산경남 2R / 보류: 착순 불완전',output.getvalue())
+            self.assertEqual(path.read_bytes(),before);key.assert_not_called()
+
 
 class FailureAndTrainingBudgetTests(unittest.TestCase):
     def test_api155_page_budget_counts_pages_and_resumes(self):

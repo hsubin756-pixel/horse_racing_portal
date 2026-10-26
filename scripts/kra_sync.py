@@ -83,6 +83,23 @@ def summary(state):
             f"API 누적 {state.get('calls',0)}회")
 
 
+def print_issues(state):
+    found = False
+    for ident, task in state['tasks'].items():
+        meet, day = ident.split(':', 1)
+        label = f'{day} {kra.MEETS.get(meet, meet)}'
+        for kind, title in [('site', '사이트 전적'), ('training', '학습 자료')]:
+            if task.get(kind+'_error'):
+                print(f"- {label} / {title}: {task[kind+'_error']}")
+                found = True
+        for race_no, result in task.get('races', {}).items():
+            if result.get('error'):
+                print(f"- {label} {race_no}R / 보류: {result['error']}")
+                found = True
+    if not found:
+        print('기록된 실패·보류 사유가 없습니다.')
+
+
 def site_day(task, meet, day, key, budget, apply, retry):
     if task.get('site') in ('반영 완료','자료 없음'):
         return
@@ -152,6 +169,8 @@ def run(args):
         print('학습 CSV:',json.dumps(state.get('exports',{}),ensure_ascii=False))
         if state.get('evaluation'): print('경마장별 평가:',state['evaluation'])
         print('기간:',args.start,'~',args.end,'/ 경마장:',','.join(args.meets))
+        if args.status:
+            print_issues(state)
         if args.dry_run: print('계획만 확인했습니다. 호출·DB 변경 없음.')
         return 0
     key = kra.load_key()
