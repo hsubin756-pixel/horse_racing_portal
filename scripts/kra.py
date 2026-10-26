@@ -165,13 +165,19 @@ def meet_mismatch(requested, observed):
             f'응답 meet: {safe!r}. 표기 확인 전에는 저장·DB 반영하지 않습니다.')
 
 
-def download(key, filters, max_pages, preview=False):
+def download(key, filters, max_pages, preview=False, before_request=None, page_cache=None):
     pages, rows, seen = [], [], set()
     total = None
     for page in range(1, max_pages + 1):
         if page > 1:
             time.sleep(0.25)
-        raw = request_page(key, filters, page)
+        cached = Path(page_cache) / f'{page}.xml' if page_cache else None
+        if cached and cached.exists():
+            raw = cached.read_text(encoding='utf-8')
+        else:
+            if before_request:
+                before_request()
+            raw = request_page(key, filters, page)
         current_total, batch = parse_page(raw, page)
         if total is not None and total != current_total:
             raise KraError('조회 중 전체 건수가 변경됐습니다. 잠시 후 다시 시도하세요.')
@@ -190,6 +196,8 @@ def download(key, filters, max_pages, preview=False):
             if 'rc_no' in filters and row['rcNo'] != str(filters['rc_no']):
                 raise KraError('요청한 경주번호와 다른 자료가 반환되었습니다.')
             seen.add(identity)
+        if cached:
+            private_write(cached, raw)
         pages.append(raw)
         rows.extend(batch)
         if len(rows) == total or preview:
@@ -214,7 +222,7 @@ def download(key, filters, max_pages, preview=False):
         print('해당 조건의 자료가 없습니다. 경주일·경마장·경주번호를 확인하세요.')
     print('저장 위치: ' + str(folder.relative_to(ROOT)))
     print('인증키는 출력·응답 파일에 포함하지 않습니다. 사이트 DB 반영은 별도 단계입니다.')
-    return metadata
+    return {**metadata, 'directory': str(folder)}
 
 
 def main():

@@ -38,15 +38,25 @@ def day_file(meet, day):
     return ML_DIR / f'meet-{meet}' / f'{day:%Y%m%d}.json'
 
 
-def fetch_day(key, meet, day):
+def fetch_day(key, meet, day, before_request=None, page_cache=None):
     """하루치 전체 행을 받아 돌려줍니다(최대 3페이지). 0건이면 빈 목록."""
     rows, total = [], None
     for page in range(1, 4):
-        raw = kc.request_page(key, 'ai-race-result', {'rccrs_cd': meet, 'race_dt': f'{day:%Y%m%d}'}, page, 100)
+        cached = Path(page_cache) / f'{page}.xml' if page_cache else None
+        if cached and cached.exists():
+            raw = cached.read_text(encoding='utf-8')
+        else:
+            if before_request:
+                before_request()
+            raw = kc.request_page(key, 'ai-race-result', {'rccrs_cd': meet, 'race_dt': f'{day:%Y%m%d}'}, page, 100)
         current, batch, actual, _ = kc.parse_page(raw)
         if actual != page or (total is not None and total != current):
             raise KraError(f'{day}: 응답 페이지 정보가 일치하지 않습니다.')
+        if len(batch) != min(100, max(0, current - len(rows))):
+            raise KraError(f'{day}: 전체 건수와 수신 건수가 일치하지 않습니다.')
         total = current
+        if cached:
+            private_write(cached, raw)
         rows.extend(batch)
         if not batch or len(rows) >= total:
             break
@@ -60,6 +70,13 @@ def collect(meet, start, end, max_calls, all_days):
         raise KraError('기간은 시작일 이후 400일 이내여야 합니다.')
     key = load_key()
     calls = fetched = skipped = 0
+    class CallLimit(Exception):
+        pass
+    def before_request():
+        nonlocal calls
+        if calls >= max_calls:
+            raise CallLimit()
+        calls += 1
     day = start
     pending = []
     while day <= end:
@@ -72,8 +89,11 @@ def collect(meet, start, end, max_calls, all_days):
     for day in pending:
         if calls >= max_calls:
             break
-        rows = fetch_day(key, meet, day)
-        calls += 1
+        try:
+            rows = fetch_day(key, meet, day, before_request=before_request,
+                             page_cache=ML_DIR / '.pages' / f'{meet}-{day:%Y%m%d}')
+        except CallLimit:
+            break
         private_write(day_file(meet, day), json.dumps({'meet': meet, 'date': day.isoformat(), 'api': 'KRA_API155',
                       'retrievedAt': datetime.now(timezone.utc).isoformat(), 'rows': rows}, ensure_ascii=False) + '\n')
         fetched += 1

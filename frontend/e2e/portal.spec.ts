@@ -46,7 +46,8 @@ test('popularity, win odds, sorting and unavailable snapshots',async({page})=>{
  await expect(page.getByRole('columnheader',{name:'단승 배당',exact:true})).toBeVisible();
  await expect(page.locator('.odds-note')).toContainText('가상 샘플');
  await expect(page.locator('.odds-value strong')).toHaveCount(12);
- await expect(page.locator('.odds-value time').first()).toContainText('KST 기준');
+ await expect(page.locator('.odds-provenance')).toContainText('KST 기준');
+ await expect(page.locator('.odds-value time')).toHaveCount(0);
  await page.getByLabel('출주마 정렬').selectOption('popularityRank');
  await expect(page.locator('.entry-table tbody tr').first().locator('.popularity-value')).toHaveText('1위');
  await expect(page.locator('.entry-table tbody tr').first().locator('.odds-value strong')).toHaveText('2.4배');

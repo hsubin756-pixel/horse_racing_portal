@@ -6,6 +6,8 @@ import random
 import sys
 import unittest
 import uuid
+import tempfile
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
@@ -13,10 +15,27 @@ from backup import mysql
 import kra_import as importer
 from kra import KraError
 from test_catalog import request
-from test_kra_import import sample_rows, sectional_rows, RETRIEVED
+from test_kra_import import sample_rows, sectional_rows, archive, RETRIEVED
+import kra_sync
 
 
 class KraIntegrationTests(unittest.TestCase):
+    def test_sync_imports_valid_races_and_records_unsupported_race(self):
+        with tempfile.TemporaryDirectory() as folder:
+            good = sample_rows(prefix=self.prefix)
+            bad = sample_rows(race_no=92, prefix=self.prefix)
+            bad[0]['ordBigo'] = '주행중지'
+            archive(Path(folder), good + bad)
+            task = {'archive': folder}
+            kra_sync.site_day(task, '1', date(2010, 1, 1), 'unused', kra_sync.Budget(1), True, False)
+            self.assertEqual(task['races']['91']['status'], '반영 완료')
+            self.assertEqual(task['races']['92']['status'], '보류')
+            rid = task['races']['91']['raceId']
+            self.assertEqual(request(f'/races/{rid}')[0], 200)
+            self.assertEqual(mysql("SELECT COUNT(*) FROM race WHERE kra_id='1:20100101:92';", 'keiba').strip(), '0')
+            kra_sync.site_day(task, '1', date(2010, 1, 1), 'unused', kra_sync.Budget(1), True, False)
+            self.assertEqual(task['races']['91']['raceId'], rid)
+
     def setUp(self):
         self.prefix = '98' + str(random.randint(10000, 99999))
         self.rows = sample_rows(prefix=self.prefix)

@@ -28,12 +28,15 @@ function KraHorseProfile({horse}:{horse:Horse}){
 function HorseDetail(){const {id}=useParams();const {data:h,error}=useLoad<Horse>('/horses/'+id);const history=useLoad<Entry[]>('/horses/'+id+'/history');return <section><Link className="breadcrumb" to="/horses">← 경주마 아카이브</Link><Status error={error} loading={!h}/>{h&&<><div className="detail-head"><div className="detail-icon">♞</div><div><div className="eyebrow">HORSE PROFILE · {h.id}</div><h1>{h.name}</h1>{h.kraId&&<p>한국마사회 자료 · 마번 {h.kraId}{h.nameEn&&' · '+h.nameEn}</p>}{h.ancestorOnly&&<p>혈통 참조용 자료 · 한국마사회 선대마정보의 이름만 제공되어 상세 정보가 없습니다</p>}<p>{h.sex} · {h.birthDate?h.birthDate+' 출생':'생년월일 미제공'} · {h.color}</p></div></div><div className="profile-actions"><FavoriteButton id={h.id}/><NoteLink horse={h.id}/><Link className="button secondary" to={"/horses/"+h.id+"/pedigree"}>3대 혈통 탐색 ↗</Link><Link className="button secondary" to={"/compare?ids="+h.id}>다른 말과 비교 ↗</Link><Link className="button secondary" to={"/statistics?horse="+h.id}>조건별 성적 ↗</Link></div><div className="facts"><div><span>조교사</span>{h.trainerId?<Link to={"/people/"+h.trainerId}>{h.trainer} ↗</Link>:<b>{h.trainer}</b>}</div><div><span>부마</span>{h.sire?<Link to={'/horses/'+h.sire.id}>{h.sire.name} ↗</Link>:<b>정보 없음</b>}</div><div><span>모마</span>{h.dam?<Link to={'/horses/'+h.dam.id}>{h.dam.name} ↗</Link>:<b>정보 없음</b>}</div>{h.origin&&<div><span>산지</span><b>{h.origin}</b></div>}{h.breed&&<div><span>품종</span><b>{h.breed}</b></div>}{h.kraRank&&<div><span>등급</span><b>{h.kraRank}</b></div>}{h.ownerName&&<div><span>마주</span><b>{h.ownerName}</b></div>}</div><KraHorseProfile horse={h}/><HorseRunningStyle key={h.id} id={h.id}/><div className="section-title"><h2>출전 전적</h2><span>최신 경주부터 표시</span></div><Status error={history.error} loading={!history.data}/>{history.data&&<EntryTable entries={history.data} mode="horse"/>}</>}</section>}
 function EntryTable({entries,mode}:{entries:Entry[];mode:'horse'|'race'}) {
  const hasTrainer=entries.some(e=>e.trainerName);
+ const oddsEntries=entries.filter(e=>e.winOdds!=null);
+ const commonOdds=mode==='race'&&oddsEntries.length>0&&oddsEntries.every(e=>e.oddsSource===oddsEntries[0].oddsSource&&e.oddsAsOf===oddsEntries[0].oddsAsOf)?oddsEntries[0]:null;
  if(entries.length===0)return <p className="notice">출전 기록이 없습니다.</p>;
  const asOf=(value:string)=>new Intl.DateTimeFormat('ko-KR',{
   timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false
  }).format(new Date(value));
  return <>
   <p className="odds-note">단승 배당은 1위 적중 시 원금을 포함한 배수입니다. 가상 샘플과 한국마사회 자료의 출처를 구분해 표시합니다. 실시간 배당이 아닙니다. 제공되지 않은 공식 인기 순위는 추정하지 않습니다. <b>배당 기준 인기</b>는 저장된 단승 배당이 낮은 순서로 조회 시 계산한 순위이며 공식 인기 순위가 아닙니다. 같은 배당은 공동 순위로, 배당이 없는 말은 순위를 비워 둡니다. 인기 순위는 착순·모델 예측 순위와 다릅니다.</p>
+  {commonOdds&&<p className="odds-provenance">배당 출처: {sourceLabel(commonOdds.oddsSource||'제공 자료')}{commonOdds.oddsAsOf&&<> · {asOf(commonOdds.oddsAsOf)} KST {commonOdds.oddsSource==='KRA_API214_1'?'수집':'기준'}</>}</p>}
   <div className="table-wrap" role="region" aria-label={mode==='horse'?'출전 전적 표':'출주마 및 배당 표'} tabIndex={0}>
    <table className="entry-table">
     <thead><tr>
@@ -51,8 +54,8 @@ function EntryTable({entries,mode}:{entries:Entry[];mode:'horse'|'race'}) {
      <td className="odds-rank-value">{e.oddsRank==null?'—':<>{e.oddsRankShared?'공동 ':''}{e.oddsRank}위{e.oddsRankField!=null&&e.oddsRankTotal!=null&&e.oddsRankField<e.oddsRankTotal&&<small>{e.oddsRankField}두 기준 (전체 {e.oddsRankTotal}두)</small>}</>}</td>
      <td className="odds-value">{e.winOdds==null?'미제공':<>
       <strong>{e.winOdds.toFixed(1)}배</strong>
-      <small>{sourceLabel(e.oddsSource||'제공 자료')}</small>
-      {e.oddsAsOf&&<time dateTime={e.oddsAsOf}>{asOf(e.oddsAsOf)} KST {e.oddsSource==='KRA_API214_1'?'수집':'기준'}</time>}
+      {!commonOdds&&<small>{sourceLabel(e.oddsSource||'제공 자료')}</small>}
+      {!commonOdds&&e.oddsAsOf&&<time dateTime={e.oddsAsOf}>{asOf(e.oddsAsOf)} KST {e.oddsSource==='KRA_API214_1'?'수집':'기준'}</time>}
      </>}</td>
      <td>{entryStatus[e.status]}</td><td>{e.gate??'미제공'}</td><td>{e.carriedWeight==null?'미제공':e.carriedWeight+'kg'}</td><td>{e.bodyWeight==null?'미제공':e.bodyWeight+'kg'} ({e.weightChange==null?'미제공':(e.weightChange>0?'+':'')+e.weightChange+'kg'})</td><td>{e.timeSeconds??'미확정'}</td>
      <td><span className={e.finishPosition===1?'rank winner':'rank'}>{e.finishPosition??'—'}</span></td>
@@ -74,7 +77,7 @@ function RacePage() {
   {data&&<>
    <div className="eyebrow">RACE DETAIL · {data.race.raceDate}</div>
    <h1>{data.race.name}</h1>
-   <p className="sub">{data.race.venue} · {data.race.surface} {data.race.distance}m</p>
+   <p className="sub">{data.race.venue} · {data.race.surface==='미제공'?'주로 정보 미제공 ·':data.race.surface} {data.race.distance}m</p>
    <RaceFacts race={data.race}/><NoteLink race={data.race.id}/><div className="section-title"><h2>출주마 및 착순 결과</h2>
     <Link className="button secondary" to={"/races/"+id+"/prediction"}>실험 모델 예측 ↗</Link>
    </div>

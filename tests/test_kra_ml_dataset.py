@@ -1,6 +1,7 @@
 """Offline checks for the API155 dataset builder: race validation and CSV export, no provider calls."""
 import csv
 import json
+import shutil
 import sys
 import tempfile
 import unittest
@@ -80,7 +81,8 @@ class DatasetTests(unittest.TestCase):
     def test_collect_only_calls_race_days_and_caches_results(self):
         page = ('<response><header><resultCode>00</resultCode></header><body><items><item><raceNo>1</raceNo><hrno>0044233</hrno><rk>1</rk><raceDs>1200</raceDs></item></items>'
                 '<numOfRows>100</numOfRows><pageNo>1</pageNo><totalCount>1</totalCount></body></response>')
-        root = Path(__file__).resolve().parent / '.tmp-ml-dir'
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root)
         calls = []
 
         def fake(key, api, params, page_no, size):
@@ -94,9 +96,6 @@ class DatasetTests(unittest.TestCase):
         self.assertEqual(calls, ['20220219', '20220220', '20220214'])
         saved = json.loads((root / 'meet-1' / '20220219.json').read_text(encoding='utf-8'))
         self.assertEqual(saved['rows'][0]['hrno'], '0044233')
-        for path in sorted((root / 'meet-1').glob('*')):
-            path.unlink()
-        (root / 'meet-1').rmdir(); root.rmdir()
         with self.assertRaises(KraError):
             ds.collect('1', date(2022, 2, 20), date(2022, 2, 14), 10, False)
 

@@ -12,7 +12,7 @@ test('imported KRA-shaped records show provenance, independent odds, sectionals 
   await expect(page.locator('.entry-table tbody tr')).toHaveCount(2);
   await expect(page.locator('.popularity-value').first()).toHaveText('미제공');
   await expect(page.locator('.odds-value').first()).toContainText('4.6배');
-  await expect(page.locator('.odds-value').first()).toContainText('수집');
+  await expect(page.locator('.odds-provenance')).toContainText('수집');
   await expect(page.locator('.entry-table')).toContainText('경주 당시 조교사');
   await expect(page.locator('.run-detail')).toContainText('39.30초');
   await expect(page.getByRole('region',{name:'코너별 통과 기록'})).toContainText('24.30초');
