@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from backup import mysql
 from kra_import import prepare, apply
-from test_kra_import import sample_rows, sectional_rows, RETRIEVED
+from test_kra_import import sample_rows, sectional_rows, mixed_result_rows, RETRIEVED
 from kra import MEET_CODES
 
 PREFIX = '970000'
@@ -21,6 +21,8 @@ def main():
         if mysql(f"SELECT COUNT(*) FROM horse WHERE kra_id LIKE '{PREFIX}%';", 'keiba').strip() != '0':
             raise SystemExit('Browser fixture horses already exist; no data changed.')
         rows = sample_rows(race_no=94, prefix=PREFIX) if meet == '서울' else sectional_rows(meet, PREFIX)
+        if len(sys.argv) > 3 and sys.argv[3] == 'nonfinishers':
+            rows = mixed_result_rows(prefix=PREFIX, race_no=94)
         for row in rows:
             row['rcNo'] = '94'
         plan = prepare(rows, RETRIEVED)

@@ -1,6 +1,23 @@
 import {test,expect} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 
+test('non-finishers retain distinct remarks without invented times or scratched popularity',async({page})=>{
+ const {raceId}=JSON.parse(execFileSync('python3',['../tests/kra_browser_fixture.py','create','서울','nonfinishers'],{encoding:'utf8'}));
+ try{
+  await page.goto('/races/'+raceId);
+  await expect(page.locator('.entry-table tbody tr')).toHaveCount(5);
+  for(const [number,label] of [[3,'주행중지'],[4,'경주제외'],[5,'출전취소']] as const){
+   const row=page.locator('.entry-table tbody tr').filter({hasText:`가상 비완주말 ${number}`});
+   await expect(row.getByRole('cell',{name:label,exact:true})).toBeVisible();
+   await expect(row.getByRole('cell',{name:'기록 없음',exact:true})).toBeVisible();
+   await expect(row.locator('.rank')).toHaveText('—');
+   if(number!==3)await expect(row.locator('.odds-value')).toHaveText('미제공');
+  }
+  await page.setViewportSize({width:375,height:812});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBeTruthy();
+ }finally{execFileSync('python3',['../tests/kra_browser_fixture.py','clean',String(raceId)]);}
+});
+
 test('imported KRA-shaped records show provenance, independent odds, sectionals and race-time trainer',async({page})=>{
  const {raceId}=JSON.parse(execFileSync('python3',['../tests/kra_browser_fixture.py','create'],{encoding:'utf8'}));
  try{

@@ -128,6 +128,22 @@ class SyncTests(unittest.TestCase):
                 self.assertIn('원본 필드 확인 불가',output.getvalue())
                 self.assertNotIn("ord='99'",output.getvalue())
 
+    def test_identifier_diagnostic_shows_shape_without_raw_alphanumeric_id(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rows=sample_rows();rows[0]['jkNo']='Ab0123'
+            archive(Path(tmp),rows);output=io.StringIO()
+            with contextlib.redirect_stdout(output):sync.print_archived_issues(tmp,'1','20100101','91','jkNo')
+            self.assertIn('형식=Aa9999',output.getvalue())
+            self.assertNotIn('Ab0123',output.getvalue())
+
+    def test_zero_call_mode_stops_at_missing_archive_without_key_or_request(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(sync,'STATE',Path(tmp)), patch.object(kra,'load_key') as key, patch.object(kra,'request_page') as request, contextlib.redirect_stdout(io.StringIO()):
+            args=SimpleNamespace(start=date(2010,1,1),end=date(2010,1,1),meets=['1'],max_calls=0,apply=True,retry_failed=True,status=False,dry_run=False,evaluate=False)
+            self.assertEqual(sync.run(args),0)
+            state=json.loads(sync.job_path(args.start,args.end,args.meets).read_text())
+            self.assertEqual(state['calls'],0)
+            key.assert_not_called();request.assert_not_called()
+
 
 class FailureAndTrainingBudgetTests(unittest.TestCase):
     def test_api155_page_budget_counts_pages_and_resumes(self):

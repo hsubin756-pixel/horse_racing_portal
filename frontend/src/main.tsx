@@ -57,7 +57,7 @@ function EntryTable({entries,mode}:{entries:Entry[];mode:'horse'|'race'}) {
       {!commonOdds&&<small>{sourceLabel(e.oddsSource||'제공 자료')}</small>}
       {!commonOdds&&e.oddsAsOf&&<time dateTime={e.oddsAsOf}>{asOf(e.oddsAsOf)} KST {e.oddsSource==='KRA_API214_1'?'수집':'기준'}</time>}
      </>}</td>
-     <td>{entryStatus[e.status]}</td><td>{e.gate??'미제공'}</td><td>{e.carriedWeight==null?'미제공':e.carriedWeight+'kg'}</td><td>{e.bodyWeight==null?'미제공':e.bodyWeight+'kg'} ({e.weightChange==null?'미제공':(e.weightChange>0?'+':'')+e.weightChange+'kg'})</td><td>{e.timeSeconds??'미확정'}</td>
+     <td>{e.statusNote||entryStatus[e.status]}</td><td>{e.gate??'미제공'}</td><td>{e.carriedWeight==null?'미제공':e.carriedWeight+'kg'}</td><td>{e.bodyWeight==null?'미제공':e.bodyWeight+'kg'} ({e.weightChange==null?'미제공':(e.weightChange>0?'+':'')+e.weightChange+'kg'})</td><td>{e.timeSeconds??(['SCRATCHED','DNF','DISQUALIFIED'].includes(e.status)?'기록 없음':'미확정')}</td>
      <td><span className={e.finishPosition===1?'rank winner':'rank'}>{e.finishPosition??'—'}</span></td>
     </tr>)}</tbody>
    </table>

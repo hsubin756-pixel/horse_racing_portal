@@ -16,6 +16,14 @@ import kra_import as importer
 RETRIEVED = datetime(2026, 10, 23, 0, 0, tzinfo=timezone.utc)
 
 
+def mixed_result_rows(prefix='99000', race_no=91):
+    rows = sample_rows(prefix=prefix, race_no=race_no)
+    for i, (code, remark) in enumerate([('92','주행중지'),('94','경주제외'),('95','출전취소')], 3):
+        rows.append(dict(rows[0], chulNo=str(i), hrNo=prefix+str(i), hrName=f'가상 비완주말 {i}',
+                         ord=code, ordBigo=remark, rcTime='0', winOdds='1.0'))
+    return rows
+
+
 def sample_rows(race_no=91, race_date='20100101', prefix='99000', meet='서울'):
     rows = []
     for i in range(1, 3):
@@ -126,6 +134,34 @@ class KraImportTests(unittest.TestCase):
             rows = sectional_rows(meet); rows[0].update(changes)
             with self.subTest(meet=meet, changes=changes), self.assertRaises(kra.KraError):
                 importer.prepare(rows, RETRIEVED)
+
+    def test_confirmed_non_finishers_preserved_with_null_results_and_raw(self):
+        rows = mixed_result_rows()
+        race = importer.prepare(rows, RETRIEVED)[0]
+        self.assertEqual(len(race['entries']), 5)
+        self.assertEqual([e['status'] for e in race['entries']], ['FINISHED','FINISHED','DNF','SCRATCHED','SCRATCHED'])
+        for entry, note in zip(race['entries'][2:], ['주행중지','경주제외','출전취소']):
+            self.assertEqual(entry['status_note'], note)
+            self.assertIsNone(entry['finish']); self.assertIsNone(entry['time'])
+            self.assertEqual(entry['points'], {}); self.assertEqual(entry['corners'], [])
+        self.assertEqual(race['entries'][2]['odds'], Decimal('1.0'))
+        self.assertIsNone(race['entries'][3]['odds']);self.assertIsNone(race['entries'][4]['odds'])
+        self.assertEqual(json.loads(race['raw']), rows)
+        self.assertIn('finish_position<=>NULL', importer.sql_plan([race], refresh_sectionals=True))
+
+    def test_non_finisher_mismatch_unknown_results_and_rank_gaps_stay_held(self):
+        for changes in [dict(ord='92',ordBigo='출전취소',rcTime='0'),
+                        dict(ord='94',ordBigo='경주제외',rcTime='75'),
+                        dict(ord='0',ordBigo='-',rcTime='0'),
+                        dict(ord='98',ordBigo='경주불성립',rcTime='0'),
+                        dict(ord='93',ordBigo='실격',rcTime='0')]:
+            rows = mixed_result_rows();rows[2].update(changes)
+            with self.subTest(changes=changes), self.assertRaises(kra.KraError):
+                importer.prepare(rows, RETRIEVED)
+        rows = mixed_result_rows();rows[1]['ord']='3'
+        with self.assertRaises(kra.KraError):importer.prepare(rows, RETRIEVED)
+        rows = mixed_result_rows()[2:]
+        with self.assertRaises(kra.KraError):importer.prepare(rows, RETRIEVED)
 
     def test_empty_weight_change_preserves_body_and_raw(self):
         rows = sample_rows()

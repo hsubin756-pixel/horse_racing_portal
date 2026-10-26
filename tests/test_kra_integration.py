@@ -15,11 +15,48 @@ from backup import mysql
 import kra_import as importer
 from kra import KraError
 from test_catalog import request
-from test_kra_import import sample_rows, sectional_rows, archive, RETRIEVED
+from test_kra_import import sample_rows, sectional_rows, mixed_result_rows, archive, RETRIEVED
 import kra_sync
 
 
 class KraIntegrationTests(unittest.TestCase):
+    def test_retry_non_finishers_preserves_entries_and_excludes_scratched_odds(self):
+        with tempfile.TemporaryDirectory() as folder:
+            rows = mixed_result_rows(prefix=self.prefix)
+            archive(Path(folder), rows)
+            task = {'archive':folder, 'site':'보류 있음',
+                    'races':{'91':{'status':'보류','error':'ord: 지원 범위를 벗어남'}}}
+            budget = kra_sync.Budget(0)
+            kra_sync.site_day(task,'1',date(2010,1,1),'unused',budget,True,True)
+            self.assertEqual(task['site'],'반영 완료');self.assertEqual(budget.calls,0)
+            rid = task['races']['91']['raceId']
+            entries = request(f'/races/{rid}')[1]['entries']
+            self.assertEqual(len(entries),5)
+            by_number = {e['number']:e for e in entries}
+            for num, state, note in [(3,'DNF','주행중지'),(4,'SCRATCHED','경주제외'),(5,'SCRATCHED','출전취소')]:
+                entry = by_number[num]
+                self.assertEqual((entry['status'],entry['statusNote']),(state,note))
+                self.assertIsNone(entry['finishPosition']);self.assertIsNone(entry['timeSeconds'])
+                if state == 'SCRATCHED':
+                    self.assertIsNone(entry['winOdds']);self.assertIsNone(entry['oddsRank'])
+            self.assertEqual(by_number[1]['oddsRankTotal'],3)
+            self.assertEqual(by_number[1]['oddsRank'],2)
+            self.assertEqual(by_number[3]['oddsRank'],1)
+            self.assertEqual(mysql(f"SELECT COUNT(*) FROM sectional s JOIN entry e ON e.id=s.entry_id WHERE e.race_id={rid} AND e.status<>'FINISHED';",'keiba').strip(),'0')
+            raw = json.loads(mysql(f'SELECT raw_json FROM kra_race_import WHERE race_id={rid};','keiba'))
+            self.assertEqual([r['ord'] for r in raw],['1','2','92','94','95'])
+            plan=importer.prepare(rows,RETRIEVED)
+            self.assertEqual(importer.apply(plan),[(rid,0)])
+            importer.apply(plan,refresh_sectionals=True)
+            self.assertEqual(request(f'/races/{rid}')[1]['entries'],entries)
+
+    def test_unprovided_and_void_results_cannot_be_imported(self):
+        for code,note in [('0','-'),('98','경주불성립')]:
+            rows=sample_rows(prefix=self.prefix)
+            for row in rows:row.update(ord=code,ordBigo=note,rcTime='0')
+            with self.assertRaises(KraError):importer.apply(importer.prepare(rows,RETRIEVED))
+            self.assertEqual(mysql(f'SELECT COUNT(*) FROM race WHERE kra_id IN ({self.where});','keiba').strip(),'0')
+
     def test_retry_archived_empty_weight_change_without_network(self):
         with tempfile.TemporaryDirectory() as folder:
             rows = sample_rows(prefix=self.prefix)

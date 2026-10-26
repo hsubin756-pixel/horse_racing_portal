@@ -21,5 +21,6 @@ public class Entry {
  Integer bodyWeight;
  Integer weightChange;
  String status="FINISHED";
+ String statusNote;
  protected Entry() {}
 }

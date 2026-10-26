@@ -109,6 +109,13 @@ def diagnostic_value(value):
     return repr(value) if re.fullmatch(r'[0-9가-힣()\[\] .,+−–—?/\-]{0,40}', value) else '(비표준 문자 포함: 원문 미출력)'
 
 
+def identifier_shape(value):
+    # Identify foreign-ID formats without printing an unverified identifier or secret.
+    if re.fullmatch(r'[A-Za-z0-9]{1,16}', value):
+        return ''.join('9' if c.isdigit() else 'A' if c.isupper() else 'a' for c in value)
+    return '길이·문자 형식 추가 확인 필요'
+
+
 def print_archived_issues(directory, meet, day, race_no, field):
     """Inspect allowlisted fields without interpreting non-finisher codes or writing data."""
     try:
@@ -141,7 +148,7 @@ def print_archived_issues(directory, meet, day, race_no, field):
                 if field == 'wgHr':
                     kra.parse_body_weight(row.get(field, '').strip())
                 elif field == 'ord':
-                    imp.number(row, field, 1, len(selected))
+                    imp.result_state(row, len(selected))
                 elif field == 'rcDist':
                     imp.number(row, field, 800, 4000)
                 elif field == 'jkNo':
@@ -156,6 +163,8 @@ def print_archived_issues(directory, meet, day, race_no, field):
             number = number if re.fullmatch(r'[0-9]{1,2}',number) else '?'
             fields = (field, 'ordBigo', 'rcTime') if field == 'ord' else (field,)
             values = ' / '.join(f'{name}={diagnostic_value(row.get(name, ""))}' for name in fields)
+            if field == 'jkNo':
+                values += f' / 형식={identifier_shape(row.get(field, ""))} (A=영문 대문자, a=소문자, 9=숫자)'
             print(f'  출전번호 {number} / {values}')
     except (OSError,ValueError,KeyError,kra.KraError):
         print('  원본 필드 확인 불가: 보관 폴더·형식을 확인하세요.')
@@ -234,7 +243,7 @@ def run(args):
             print_issues(state)
         if args.dry_run: print('계획만 확인했습니다. 호출·DB 변경 없음.')
         return 0
-    key = kra.load_key()
+    key = kra.load_key() if args.max_calls else ''
     budget = Budget(args.max_calls)
     previous_calls = state['calls']
     try:
@@ -253,7 +262,8 @@ def run(args):
                     state['calls'] = previous_calls + budget.calls
                     save(path,state)
     except BudgetReached:
-        print('이번 실행의 API 호출 한도에 도달했습니다. 같은 명령으로 이어서 받으세요.')
+        print('보관 자료가 없어 중단했습니다. --max-calls 0은 API를 호출하지 않습니다.' if not args.max_calls else
+              '이번 실행의 API 호출 한도에 도달했습니다. 같은 명령으로 이어서 받으세요.')
     finally:
         save(path,state)
         print(summary(state)); print('진행표:',path.with_suffix('.html'))
@@ -292,8 +302,8 @@ def main():
     p.add_argument('--retry-failed',action='store_true',help='기록된 실패/보류 재시도')
     p.add_argument('--evaluate',action='store_true',help='학습 수집 완료 시 경마장별 비교 평가 (모델 교체 없음)')
     a=p.parse_args(); a.meets=sorted(set(a.meets))
-    if not 1<=a.max_calls<=1000 or a.end<a.start or (a.end-a.start).days>400 or a.end>end:
-        p.error('기간은 어제까지, 400일 이내이며 호출 한도는 1~1000입니다.')
+    if not 0<=a.max_calls<=1000 or a.end<a.start or (a.end-a.start).days>400 or a.end>end:
+        p.error('기간은 어제까지, 400일 이내이며 호출 한도는 0~1000입니다(0은 보관 자료만 사용).')
     try:
         if a.status or a.dry_run: return run(a)
         STATE.mkdir(parents=True,exist_ok=True)

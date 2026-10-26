@@ -15,6 +15,30 @@ from kra import ENDPOINT, MAX_BYTES, PAGE_SIZE, MEETS, MEET_CODES, KraError, par
 
 SOURCE = 'KRA_API214_1'
 
+# Code + remark pairs observed in the user's archived API214_1 responses.
+NON_FINISHERS = {'92': ('주행중지', 'DNF'), '94': ('경주제외', 'SCRATCHED'),
+                '95': ('출전취소', 'SCRATCHED')}
+
+
+def result_state(row, field):
+    code = text(row, 'ord', 10)
+    remark = text(row, 'ordBigo', 30, True)
+    if code in NON_FINISHERS:
+        expected, status = NON_FINISHERS[code]
+        if remark != expected:
+            raise KraError('ord: 비완주 코드와 순위 비고가 일치하지 않습니다.')
+        if row.get('rcTime', '').strip() not in ('', '0', '0.0', '0.00'):
+            raise KraError('ord: 비완주 코드에 결승 시간이 제공됐습니다. 의미 확인이 필요합니다.')
+        return status, None, None, remark
+    if code == '0':
+        raise KraError('ord: 착순 미제공(0) 자료입니다. 완료 결과로 반영하지 않습니다.')
+    if code == '98' and remark == '경주불성립':
+        raise KraError('ord: 경주불성립(98) 자료입니다. 일반 완료 경주로 반영하지 않습니다.')
+    finish = number(row, 'ord', 1, field)
+    if remark not in ('', '-'):
+        raise KraError('순위비고가 있는 경주입니다. 코드와 비고의 의미 확인 후 반영해야 합니다.')
+    return 'FINISHED', finish, number(row, 'rcTime', 1, 1000, places=2), None
+
 
 def sectionals(row, meet, distance, field, finish, finish_time):
     """Store elapsed time from start; Jeju G times are remaining section times.
@@ -171,6 +195,8 @@ def prepare(rows, retrieved):
         if not 2 <= field <= 30:
             raise KraError('한 경주의 전체 출전 자료(2~30두)가 필요합니다.')
         race_date = day(race_day)
+        if not first.get('rcDist', '').strip():
+            raise KraError('rcDist: 경주 거리 미제공입니다. 거리 추정 없이 보류합니다.')
         distance = number(first, 'rcDist', 800, 4000)
         common = ('rcDist', 'rcName', 'rank', 'weather', 'track')
         if any(any(r.get(k, '') != first.get(k, '') for k in common) for r in raw):
@@ -187,26 +213,27 @@ def prepare(rows, retrieved):
             if horse in horses or num in numbers:
                 raise KraError('동일 경주에서 말 또는 출전번호가 중복됐습니다.')
             horses.add(horse); numbers.add(num)
-            finish = number(r, 'ord', 1, field)
-            if text(r, 'ordBigo', 30, True) not in ('', '-'):
-                raise KraError('순위비고가 있는 경주입니다. 취소·중지·실격 등의 의미 확인 후 반영해야 합니다.')
+            status, finish, finish_time, status_note = result_state(r, field)
             birthday = day(text(r, 'birthday', 8))
             if not date(1980, 1, 1) <= birthday < race_date:
                 raise KraError('말의 생년월일과 경주일을 확인하세요.')
             sex = text(r, 'sex', 8)
             if sex not in ('수', '암', '거'):
                 raise KraError('지원하지 않는 성별 표기입니다.')
-            finish_time = number(r, 'rcTime', 1, 1000, places=2)
             body, change = parse_body_weight(text(r, 'wgHr', 30, True))
-            points, corners = sectionals(r, meet, distance, field, finish, finish_time)
+            # Do not infer a finish or partial sectionals for non-finishers. Raw fields remain archived.
+            points, corners = sectionals(r, meet, distance, field, finish, finish_time) if status == 'FINISHED' else ({}, [])
             race['entries'].append({'horse': horse, 'name': text(r, 'hrName'), 'sex': sex,
                 'birth': birthday.isoformat(), 'number': num, 'finish': finish, 'time': finish_time,
+                'status': status, 'status_note': status_note,
                 'jockey': identifier(r, 'jkNo'), 'jockey_name': text(r, 'jkName'),
                 'trainer': identifier(r, 'trNo'), 'trainer_name': text(r, 'trName'),
                 'carried': number(r, 'wgBudam', 30, 80, True, 1), 'body': body, 'change': change,
-                'odds': number(r, 'winOdds', 1, 999999, True, 1), 'points': points, 'corners': corners})
+                'odds': number(r, 'winOdds', 1, 999999, True, 1) if status != 'SCRATCHED' else None, 'points': points, 'corners': corners})
         # Competition ranks allow ties (1,1,3), but reject a missing winner/finisher.
-        finishes = sorted(e['finish'] for e in race['entries'])
+        finishes = sorted(e['finish'] for e in race['entries'] if e['status'] == 'FINISHED')
+        if not finishes:
+            raise KraError('ord: 완주 결과가 없는 경주입니다. 일반 완료 경주로 반영하지 않습니다.')
         for index, finish in enumerate(finishes):
             if finish != index + 1 and (index == 0 or finish != finishes[index - 1]):
                 raise KraError('착순이 완전하지 않습니다. 전체 경주 결과를 다시 받아 확인하세요.')
@@ -266,14 +293,15 @@ def sql_plan(races, refresh_sectionals=False):
                     f'@new_race=1 AND NOT EXISTS(SELECT 1 FROM horse WHERE kra_id={horse_id})'),
                 f'SET @hid=(SELECT id FROM horse WHERE kra_id={horse_id});']
             values = {'number': entry['number'], 'jockey': entry['jockey_name'], 'trainer_name': entry['trainer_name'],
-                'finish_position': entry['finish'], 'time_seconds': entry['time'], 'status': 'FINISHED',
+                'finish_position': entry['finish'], 'time_seconds': entry['time'], 'status': entry['status'],
+                'status_note': entry['status_note'],
                 'carried_weight': entry['carried'], 'body_weight': entry['body'], 'weight_change': entry['change'],
                 'win_odds': entry['odds'], 'odds_source': SOURCE if entry['odds'] is not None else None,
                 'odds_as_of': race['retrieved'] if entry['odds'] is not None else None}
             statements += [f"INSERT INTO entry(race_id,horse_id,jockey_id,trainer_id,{','.join(values)}) SELECT @rid,@hid,@jid,@tid,{','.join(literal(v) for v in values.values())} WHERE @new_race=1;",
                 'SET @eid=(SELECT id FROM entry WHERE race_id=@rid AND horse_id=@hid);']
             if refresh_sectionals:
-                statements += [f'INSERT INTO kra_assertion VALUES (EXISTS(SELECT 1 FROM entry WHERE id=@eid AND number={entry["number"]} AND finish_position={entry["finish"]} AND time_seconds={literal(entry["time"])}));']
+                statements += [f'INSERT INTO kra_assertion VALUES (EXISTS(SELECT 1 FROM entry WHERE id=@eid AND number={entry["number"]} AND finish_position<=>{literal(entry["finish"])} AND time_seconds<=>{literal(entry["time"])} AND status={literal(entry["status"])} AND status_note<=>{literal(entry["status_note"])}));']
                 for table in ('sectional', 'sectional_marker'):
                     statements += [f'INSERT INTO kra_assertion VALUES (NOT EXISTS(SELECT 1 FROM {table} WHERE entry_id=@eid AND source<>{literal(SOURCE)}));',
                                    f'DELETE FROM {table} WHERE entry_id=@eid;']
