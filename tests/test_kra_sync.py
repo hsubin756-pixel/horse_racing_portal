@@ -74,6 +74,18 @@ class SyncTests(unittest.TestCase):
             self.assertIn('20250101 부산경남 2R / 보류: 착순 불완전',output.getvalue())
             self.assertEqual(path.read_bytes(),before);key.assert_not_called()
 
+    def test_weight_diagnostic_shows_only_invalid_archived_weights(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rows=sample_rows();rows[0]['wgHr']='480(-)';rows[1]['wgHr']=KEY
+            archive(Path(tmp),rows)
+            task={'archive':tmp,'races':{'91':{'error':'마체중·증감 표기를 확인하세요.'}}}
+            output=io.StringIO()
+            with contextlib.redirect_stdout(output):sync.print_issues({'tasks':{'1:20100101':task}})
+            self.assertIn("출전번호 1 / wgHr='480(-)'",output.getvalue())
+            self.assertIn('원문 미출력',output.getvalue())
+            self.assertNotIn(KEY,output.getvalue())
+            self.assertNotIn(rows[0]['hrName'],output.getvalue())
+
 
 class FailureAndTrainingBudgetTests(unittest.TestCase):
     def test_api155_page_budget_counts_pages_and_resumes(self):

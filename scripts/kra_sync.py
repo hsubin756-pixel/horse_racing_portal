@@ -10,6 +10,7 @@ import fcntl
 import html
 import io
 import json
+import re
 from pathlib import Path
 import sys
 import time
@@ -95,9 +96,41 @@ def print_issues(state):
         for race_no, result in task.get('races', {}).items():
             if result.get('error'):
                 print(f"- {label} {race_no}R / 보류: {result['error']}")
+                if '마체중' in result['error'] and task.get('archive'):
+                    print_weight_issues(task['archive'], meet, day, race_no)
                 found = True
     if not found:
         print('기록된 실패·보류 사유가 없습니다.')
+
+
+def print_weight_issues(directory, meet, day, race_no):
+    """Inspect only the archived numeric weight field, never credentials or raw rows."""
+    try:
+        folder = Path(directory)
+        meta = json.loads((folder/'summary.json').read_text())
+        if meta.get('source') != 'KRA_API214_1' or meta.get('filters',{}).get('meet') != meet or meta.get('filters',{}).get('rc_date') != day:
+            raise ValueError()
+        pages = meta['pages']
+        if type(pages) is not int or not 1 <= pages <= 10:
+            raise ValueError()
+        for page in range(1, pages+1):
+            path = folder/f'page-{page}.xml'
+            if path.stat().st_size > kra.MAX_BYTES:
+                raise ValueError()
+            _, rows = kra.parse_page(path.read_text(),page)
+            for row in rows:
+                if row.get('rcNo') != race_no:
+                    continue
+                value = row.get('wgHr','').strip()
+                match = re.fullmatch(r'(\d+)\s*\(\s*([+-]?\d+)\s*\)',value)
+                if value in ('','-','0') or (match and 200 <= int(match[1]) <= 800 and -100 <= int(match[2]) <= 100):
+                    continue
+                safe = repr(value) if re.fullmatch(r'[0-9가-힣()\[\] .,+−–—?/\-]{0,40}',value) else '(비표준 문자 포함: 원문 미출력)'
+                number = row.get('chulNo','')
+                number = number if re.fullmatch(r'\d{1,2}',number) else '?'
+                print(f'  출전번호 {number} / wgHr={safe}')
+    except (OSError,ValueError,KeyError,kra.KraError):
+        print('  원본 마체중 확인 불가: 보관 폴더·형식을 확인하세요.')
 
 
 def site_day(task, meet, day, key, budget, apply, retry):
