@@ -28,7 +28,7 @@ def main():
  before=inventory('keiba')
  fd=os.open(backup,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
  with os.fdopen(fd,'wb') as raw, gzip.GzipFile(fileobj=raw,mode='wb') as output:
-  command='MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqldump -uroot --single-transaction --quick --no-tablespaces --set-gtid-purged=OFF --skip-comments keiba'
+  command='MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqldump -uroot --default-character-set=utf8mb4 --single-transaction --quick --no-tablespaces --set-gtid-purged=OFF --skip-comments keiba'
   process=subprocess.Popen(PREFIX+[command],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
   while chunk:=process.stdout.read(1024*1024): output.write(chunk)
   _,error=process.communicate()
@@ -37,7 +37,7 @@ def main():
  try:
   mysql('CREATE DATABASE '+schema+' CHARACTER SET utf8mb4;')
   with gzip.open(backup,'rb') as source:
-   process=subprocess.Popen(PREFIX+['MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot '+schema],stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
+   process=subprocess.Popen(PREFIX+['MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot --default-character-set=utf8mb4 '+schema],stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
    while chunk:=source.read(1024*1024): process.stdin.write(chunk)
    process.stdin.close();process.stdin=None
    _,error=process.communicate()

@@ -25,6 +25,8 @@
 `python3 tests/check_tls.py`는 별도 임시 Caddy와 로컬 CA로 인증서·호스트명 검증을 유지한 HTTPS 전달을 검사합니다. 공개 ACME 검증이나 실제 도메인 배포를 대체하지 않습니다.
 
 ## 백업 및 복구 검사
+
+KRA 원본·학습 CSV·수집 진행표와 DB를 함께 보관하려면 [통합 백업 안내](KRA_BACKUP.md)의 `python3 scripts/kra_backup.py create`를 사용하세요. 아래 명령은 DB만 백업합니다.
 개발/점검 환경에서 다음을 실행합니다.
 
 ```bash

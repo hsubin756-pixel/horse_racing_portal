@@ -63,6 +63,7 @@ python3 -m venv .runtime/ml-venv
 python3 -m unittest discover -s tests -v
 python3 tests/scale.py # 별도 DB에서 10,040두/50명/30초 부하
 python3 scripts/backup.py # 원본을 유지하며 별도 스키마 복원 확인
+python3 scripts/kra_backup.py create # DB + KRA 원본/진행 기록 통합 백업
 cd frontend
 npm run build
 PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:e2e
@@ -70,6 +71,8 @@ PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:e2e
 API 테스트는 실행 중인 Spring/MySQL/FastAPI를 사용하며 테스트 회원을 생성합니다. 테스트 전용/개발 DB에서 실행하세요. Playwright는 시스템 Chromium을 사용하거나 `npx playwright install chromium` 후 실행할 수 있습니다. 전자는 클라우드 다운로드 정책 변경 없이 사용할 수 있습니다. ML 장애 검증은 `docker compose stop ml`, `python3 tests/check_outage.py`, `docker compose start ml`, 준비 확인 순서입니다.
 
 ## 한국마사회 API 개발계정 승인 후
+
+수집한 자료와 DB를 함께 보관하는 방법은 [통합 백업 안내](docs/KRA_BACKUP.md)를 참고하세요.
 
 [인증키 설정·연결 확인 안내](docs/KRA_API.md)를 참고하세요. WSL에서 아래 명령을 실행하면 키를 숨김 입력으로 저장하고 문서 예제 경주의 원본 응답을 내려받습니다. Docker 재빌드와 추가 Python 패키지는 필요하지 않습니다.
 
