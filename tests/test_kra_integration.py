@@ -25,6 +25,8 @@ class KraIntegrationTests(unittest.TestCase):
             rows = mixed_result_rows(prefix=self.prefix)
             rows[3]['wgHr'] = '()'
             rows[4]['wgHr'] = '()'
+            rows[3]['trNo'] = '' # Same name as a known trainer must not imply the same identity.
+            rows[4].update(trNo='',trName='')
             archive(Path(folder), rows)
             task = {'archive':folder, 'site':'보류 있음',
                     'races':{'91':{'status':'보류','error':'ord: 지원 범위를 벗어남'}}}
@@ -45,6 +47,11 @@ class KraIntegrationTests(unittest.TestCase):
             self.assertEqual(by_number[1]['oddsRankTotal'],3)
             self.assertEqual(by_number[1]['oddsRank'],2)
             self.assertEqual(by_number[3]['oddsRank'],1)
+            self.assertIsNotNone(by_number[3]['trainerId'])
+            self.assertIsNone(by_number[4]['trainerId']);self.assertIsNone(by_number[5]['trainerId'])
+            self.assertEqual(by_number[4]['trainerName'],rows[3]['trName'])
+            self.assertIsNone(by_number[5]['trainerName'])
+            self.assertEqual(mysql(f"SELECT COUNT(*) FROM person WHERE kind='TRAINER' AND kra_id LIKE '{self.prefix}%';",'keiba').strip(),'1')
             self.assertEqual(mysql(f"SELECT COUNT(*) FROM sectional s JOIN entry e ON e.id=s.entry_id WHERE e.race_id={rid} AND e.status<>'FINISHED';",'keiba').strip(),'0')
             raw = json.loads(mysql(f'SELECT raw_json FROM kra_race_import WHERE race_id={rid};','keiba'))
             self.assertEqual([r['ord'] for r in raw],['1','2','92','94','95'])

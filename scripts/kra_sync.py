@@ -97,7 +97,7 @@ def print_issues(state):
             if result.get('error'):
                 print(f"- {label} {race_no}R / 보류: {result['error']}")
                 field = 'wgHr' if '마체중' in result['error'] else result['error'].split(':', 1)[0]
-                if field in ('wgHr', 'ord', 'jkNo', 'rcDist') and task.get('archive'):
+                if field in ('wgHr', 'ord', 'jkNo', 'trNo', 'rcDist') and task.get('archive'):
                     print_archived_issues(task['archive'], meet, day, race_no, field)
                 found = True
     if not found:
@@ -151,7 +151,7 @@ def print_archived_issues(directory, meet, day, race_no, field):
                     imp.result_state(row, len(selected))
                 elif field == 'rcDist':
                     imp.number(row, field, 800, 4000)
-                elif field == 'jkNo':
+                elif field in ('jkNo', 'trNo'):
                     imp.identifier(row, field)
                 else:
                     raise ValueError()
@@ -163,7 +163,7 @@ def print_archived_issues(directory, meet, day, race_no, field):
             number = number if re.fullmatch(r'[0-9]{1,2}',number) else '?'
             fields = (field, 'ordBigo', 'rcTime') if field == 'ord' else (field,)
             values = ' / '.join(f'{name}={diagnostic_value(row.get(name, ""))}' for name in fields)
-            if field == 'jkNo':
+            if field in ('jkNo', 'trNo'):
                 values += f' / 형식={identifier_shape(row.get(field, ""))} (A=영문 대문자, a=소문자, 9=숫자)'
             print(f'  출전번호 {number} / {values}')
     except (OSError,ValueError,KeyError,kra.KraError):

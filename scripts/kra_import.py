@@ -225,13 +225,17 @@ def prepare(rows, retrieved):
             if sex not in ('수', '암', '거'):
                 raise KraError('지원하지 않는 성별 표기입니다.')
             body, change = parse_body_weight(text(r, 'wgHr', 30, True))
+            # A missing trainer ID does not invalidate the race result. Preserve
+            # any supplied name, but never guess a person link from that name.
+            trainer = identifier(r, 'trNo') if text(r, 'trNo', 16, True) else None
+            trainer_name = text(r, 'trName', optional=trainer is None) or None
             # Do not infer a finish or partial sectionals for non-finishers. Raw fields remain archived.
             points, corners = sectionals(r, meet, distance, field, finish, finish_time) if status == 'FINISHED' else ({}, [])
             race['entries'].append({'horse': horse, 'name': text(r, 'hrName'), 'sex': sex,
                 'birth': birthday.isoformat(), 'number': num, 'finish': finish, 'time': finish_time,
                 'status': status, 'status_note': status_note,
                 'jockey': identifier(r, 'jkNo'), 'jockey_name': text(r, 'jkName'),
-                'trainer': identifier(r, 'trNo'), 'trainer_name': text(r, 'trName'),
+                'trainer': trainer, 'trainer_name': trainer_name,
                 'carried': number(r, 'wgBudam', 30, 80, True, 1), 'body': body, 'change': change,
                 'odds': number(r, 'winOdds', 1, 999999, True, 1) if status != 'SCRATCHED' else None, 'points': points, 'corners': corners})
         # Competition ranks allow ties (1,1,3), but reject a missing winner/finisher.
@@ -287,6 +291,10 @@ def sql_plan(races, refresh_sectionals=False):
             statements += [f"INSERT INTO kra_assertion VALUES (EXISTS(SELECT 1 FROM race WHERE id=@rid AND source={literal(SOURCE)} AND distance={race['distance']} AND race_date={literal(race['date'])} AND status='OFFICIAL'));" ]
         for entry in race['entries']:
             for kind, role, var in [('JOCKEY', 'jockey', '@jid'), ('TRAINER', 'trainer', '@tid')]:
+                if entry[role] is None:
+                    # Explicit reset: never reuse the previous entry's person ID.
+                    statements.append(f'SET {var}=NULL;')
+                    continue
                 source_id = literal(entry[role])
                 statements += [insert('person', {'kind': kind, 'name': entry[role + '_name'], 'source': SOURCE, 'kra_id': entry[role]},
                     f"@new_race=1 AND NOT EXISTS(SELECT 1 FROM person WHERE kind='{kind}' AND kra_id={source_id})"),

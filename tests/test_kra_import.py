@@ -185,6 +185,20 @@ class KraImportTests(unittest.TestCase):
             with self.subTest(key=key,value=value), self.assertRaises(kra.KraError):
                 importer.identifier({key:value},key)
 
+    def test_missing_trainer_preserves_name_without_inventing_identity(self):
+        rows = mixed_result_rows()
+        rows[3].update(trNo='',trName='이름만 제공된 조교사')
+        rows[4].pop('trNo');rows[4].pop('trName')
+        plan = importer.prepare(rows, RETRIEVED)[0]
+        self.assertEqual((plan['entries'][3]['trainer'],plan['entries'][3]['trainer_name']), (None,'이름만 제공된 조교사'))
+        self.assertEqual((plan['entries'][4]['trainer'],plan['entries'][4]['trainer_name']), (None,None))
+        self.assertEqual(importer.sql_plan([plan]).count('SET @tid=NULL;'),2)
+        self.assertEqual(json.loads(plan['raw']),rows)
+        for value in ('0','ABC','1'*17,'123\n456'):
+            rows[3]['trNo']=value
+            with self.subTest(value=value),self.assertRaises(kra.KraError):
+                importer.prepare(rows, RETRIEVED)
+
     def test_rejects_ambiguous_results_and_invalid_sectionals(self):
         for updates in [
             {'ordBigo': '주행중지'}, {'ord': '99'}, {'rcTime': '0'}, {'hrNo': ''},

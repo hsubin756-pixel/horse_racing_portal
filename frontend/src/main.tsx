@@ -49,7 +49,7 @@ function EntryTable({entries,mode}:{entries:Entry[];mode:'horse'|'race'}) {
      <td>{mode==='horse'?e.raceDate:String(e.number).padStart(2,'0')}</td>
      <td><Link to={mode==='horse'?'/races/'+e.raceId:'/horses/'+e.horseId}>{mode==='horse'?e.raceName:e.horseName} ↗</Link></td>
      <td><Link to={e.jockeyId?"/people/"+e.jockeyId:"/statistics?jockey="+encodeURIComponent(e.jockey)}>{e.jockey} ↗</Link></td>
-     {hasTrainer&&<td>{e.trainerId?<Link to={'/people/'+e.trainerId}>{e.trainerName} ↗</Link>:'미제공'}</td>}
+     {hasTrainer&&<td>{e.trainerId?<Link to={'/people/'+e.trainerId}>{e.trainerName} ↗</Link>:(e.trainerName||'미제공')}</td>}
      <td className="popularity-value">{e.popularityRank==null?'미제공':e.popularityRank+'위'}</td>
      <td className="odds-rank-value">{e.oddsRank==null?'—':<>{e.oddsRankShared?'공동 ':''}{e.oddsRank}위{e.oddsRankField!=null&&e.oddsRankTotal!=null&&e.oddsRankField<e.oddsRankTotal&&<small>{e.oddsRankField}두 기준 (전체 {e.oddsRankTotal}두)</small>}</>}</td>
      <td className="odds-value">{e.winOdds==null?'미제공':<>

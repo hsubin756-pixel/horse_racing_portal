@@ -23,6 +23,8 @@ def main():
         rows = sample_rows(race_no=94, prefix=PREFIX) if meet == '서울' else sectional_rows(meet, PREFIX)
         if len(sys.argv) > 3 and sys.argv[3] == 'nonfinishers':
             rows = mixed_result_rows(prefix=PREFIX, race_no=94)
+            rows[3].update(trNo='',trName='이름만 제공된 조교사')
+            rows[4].update(trNo='',trName='')
         for row in rows:
             row['rcNo'] = '94'
         plan = prepare(rows, RETRIEVED)

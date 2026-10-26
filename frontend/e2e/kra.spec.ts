@@ -12,6 +12,10 @@ test('non-finishers retain distinct remarks without invented times or scratched 
    await expect(row.getByRole('cell',{name:'기록 없음',exact:true})).toBeVisible();
    await expect(row.locator('.rank')).toHaveText('—');
    if(number!==3)await expect(row.locator('.odds-value')).toHaveText('미제공');
+   if(number===4){
+    await expect(row.getByRole('cell',{name:'이름만 제공된 조교사',exact:true})).toBeVisible();
+    await expect(row.getByRole('link',{name:/이름만 제공된 조교사/})).toHaveCount(0);
+   }
   }
   await page.setViewportSize({width:375,height:812});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBeTruthy();
