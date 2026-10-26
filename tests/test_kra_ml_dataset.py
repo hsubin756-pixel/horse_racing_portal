@@ -2,6 +2,7 @@
 import csv
 import json
 import sys
+import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
@@ -21,6 +22,21 @@ def day(date_text, rows):
 
 
 class DatasetTests(unittest.TestCase):
+    def test_export_limits_cached_days_to_requested_period(self):
+        days = [day(d, [starter(1, g, f'004423{g}', str(g)) for g in range(1, 5)])
+                for d in ('2024-12-31', '2025-01-04', '2025-12-28', '2026-01-01')]
+        with tempfile.TemporaryDirectory() as folder, mock.patch.object(ds, 'load_days', return_value=days), mock.patch('builtins.print'):
+            out = Path(folder) / 'seoul-2025.csv'
+            ds.export('1', out, start=date(2025, 1, 4), end=date(2025, 12, 28))
+            with out.open() as source:
+                rows = list(csv.DictReader(source))
+            self.assertEqual(len(rows), 8)
+            self.assertEqual({r['race_date'] for r in rows}, {'2025-01-04', '2025-12-28'})
+            before = out.read_bytes()
+            with self.assertRaises(KraError):
+                ds.export('1', out, start=date(2023, 1, 1), end=date(2023, 12, 31))
+            self.assertEqual(out.read_bytes(), before)
+
     def test_keeps_complete_races_and_reports_dropped_ones(self):
         good = [starter(1, g, f'004423{g}', str(g)) for g in range(1, 6)]
         tie = [starter(2, g, f'004424{g}', '1' if g < 3 else str(g)) for g in range(1, 6)]

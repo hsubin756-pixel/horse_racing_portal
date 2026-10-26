@@ -164,8 +164,13 @@ def build_rows(days, meet, drop_scratched=True):
     return out, dict(dropped)
 
 
-def export(meet, output):
+def export(meet, output, start=None, end=None):
+    if start and end and end < start:
+        raise KraError('종료일은 시작일 이후여야 합니다.')
     days = load_days(meet)
+    if start or end:
+        days = [d for d in days if (not start or date.fromisoformat(d['date']) >= start)
+                and (not end or date.fromisoformat(d['date']) <= end)]
     if not days:
         raise KraError('보존된 날짜가 없습니다. 먼저 collect 를 실행하세요.')
     rows, dropped = build_rows(days, meet)

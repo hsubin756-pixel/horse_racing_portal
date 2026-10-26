@@ -10,7 +10,7 @@ os.chdir(ROOT)
 os.environ.setdefault('DOCKER_CONFIG',str(ROOT/'.runtime/docker'))
 PREFIX=['docker','compose','exec','-T','db','sh','-c']
 def mysql(sql, database=None):
- command='MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot --batch --skip-column-names'
+ command='MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot --default-character-set=utf8mb4 --batch --skip-column-names'
  if database: command+=' '+database
  return subprocess.run(PREFIX+[command],input=sql.encode(),stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=True).stdout.decode()
 def inventory(database):

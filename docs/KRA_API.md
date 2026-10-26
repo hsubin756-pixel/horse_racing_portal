@@ -149,3 +149,28 @@ python3 scripts/kra_master.py plans --meet 1 --apply    # 오늘 이후 한 달 
 - `people`: 기수 상세정보(API12_1)·조교사 상세정보(API19_1)의 전원을 번호 기준으로 등록·갱신합니다. 생년월일은 저장하지 않고 데뷔·은퇴·소속조·집계 성적만 보관합니다. 경주 결과로 만들어진 인물과 번호가 같으면 같은 행을 갱신합니다.
 - `plans`: 경주계획표(API72_2)로 예정 경주를 `SCHEDULED`로 등록합니다(출전마 명단은 승인 API에 없어 비어 있음). 이후 같은 경주의 결과를 `kra_import.py --apply`로 반영하면 같은 행이 `OFFICIAL`로 바뀌고 관심 경주가 유지됩니다. 확정된 경주는 계획 재실행으로 바뀌지 않습니다.
 - 검증: `python3 -m unittest discover -s tests -p 'test_kra_master.py' -v`(오프라인 8개), 서비스 실행 중 `python3 -m unittest discover -s tests -p 'test_kra_master_integration.py' -v`(실제 DB/API 3개, 제공기관 호출 없음).
+
+## 제주·부산경남 구간 필드 확인 (2026-10-26)
+
+사용자 첨부 `API214_1_한국마사회 경주성적정보.docx`의 출력 명세를 확인했습니다.
+
+| 경마장 | 명세상 필드 | 해석과 현재 처리 |
+|---|---|---|
+| 제주 | `jeS1fTime`, `jeG3fTime`, `jeG1fTime`, `je_1cTime`~`je_4cTime` | 통과기록으로 기재되어 있으나 누적/구간 시간 구분을 실제 응답으로 추가 확인해야 함 |
+| 제주 | `sjS1fOrd`, `sjG3fOrd`, `sjG1fOrd`, `sj_1cOrd`~`sj_4cOrd` | 서울·제주 공통 통과순위임을 명세에 명시 |
+| 부산경남 | `buS1fAccTime`, `buG1fAccTime`~`buG4fAccTime`, `buG6fAccTime`, `buG8fAccTime` 및 대응 `Ord` | 누적기록/통과순위로 명시. 잔여 거리, 거리별 미사용 지점, 0값을 실응답과 대조 필요 |
+| 부산경남 | `buS1fTime`, `bu_1fGTime`, `bu_2fGTime`, `bu_3fGTime`, 기타 구간 `Time` | 누적기록 필드와 혼용하지 않음 |
+
+첨부 예시는 서울 응답이며 제주·부산 필드는 0입니다. 따라서 실제 제주·부산 응답 검증 완료로 간주할 수 없습니다. `DETAIL_MEETS`는 서울만 유지합니다. 다른 경마장은 결승·배당을 반영하고 구간 원본은 `raw_json`으로 보존합니다.
+
+인증키가 설정된 WSL에서 다음 순서로 실제 미리보기를 확인하세요. 날짜는 예시이며 자료가 없으면 실제 시행일로 바꾸세요. 인증키를 채팅이나 Git에 넣지 마세요.
+
+```bash
+git pull --ff-only origin main
+python3 scripts/kra.py fetch --meet 2 --date 20251024 --race 1
+python3 scripts/kra.py fetch --meet 3 --date 20251024 --race 1
+# 각 실행이 출력한 저장 위치를 아래에 넣어 두 폴더 각각 실행
+python3 scripts/kra_import.py .runtime/kra/results-실제폴더명
+```
+
+공유할 결과는 호출 성공/전체 수신 여부, 미리보기와 오류 메시지입니다. 구간 해석을 위해 원본 중 위 필드와 `meet`, `rcDist`, `rcTime`, `ord`를 한 출주마 기준으로 확인해야 합니다. `--apply`는 미리보기 확인 후 실행합니다.

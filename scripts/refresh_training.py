@@ -41,6 +41,8 @@ def python_for_ml():
 
 
 def run(args, data=DATA):
+    if args.end < args.start or (args.end - args.start).days > 400:
+        raise KraError('기간은 시작일 이후 400일 이내여야 합니다.')
     plan = [(meet, target(meet, args.start, args.end, data)) for meet in args.meets]
     print('계획: ' + ' · '.join(f'{ds.MEETS[m]}→{p.name}' for m, p in plan) + (' · 재학습 생략' if args.skip_train else ' · 재학습 포함'))
     if args.dry_run:
@@ -50,7 +52,7 @@ def run(args, data=DATA):
         result = ds.collect(meet, args.start, args.end, args.max_calls, False)
         if result and result['remaining']:
             raise KraError(f'{ds.MEETS[meet]}: 남은 날짜 {result["remaining"]}개가 있어 CSV를 만들지 않았습니다. 같은 명령을 다시 실행하세요(한도 초과 시 다음 날).')
-        ds.export(meet, str(path))
+        ds.export(meet, str(path), start=args.start, end=args.end)
     if args.skip_train:
         print('재학습을 생략했습니다. 나중에: python3 ml/train_real.py')
         return 0

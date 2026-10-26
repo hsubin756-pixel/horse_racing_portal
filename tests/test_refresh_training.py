@@ -46,6 +46,8 @@ class RefreshTests(unittest.TestCase):
                 self.assertEqual(rt.run(args(), data), 0)
             self.assertEqual([c.args[0] for c in collect.call_args_list], ['1', '2'])
             self.assertEqual([(c.args[0], Path(c.args[1]).name) for c in export.call_args_list], [('1', 'seoul-2025.csv'), ('2', 'jeju-2025.csv')])
+            for call in export.call_args_list:
+                self.assertEqual(call.kwargs, {'start': date(2025, 1, 4), 'end': date(2025, 12, 28)})
             self.assertTrue(run.call_args.args[0][1].endswith('train_real.py'))
             self.assertIn('제주 자료 출처', out.getvalue())     # provenance warning for the meet missing in PROVENANCE.md
             self.assertNotIn('서울 자료 출처', out.getvalue())
@@ -77,6 +79,13 @@ class RefreshTests(unittest.TestCase):
         with redirect_stdout(io.StringIO()) as out:
             self.assertEqual(rt.main(['--meets', '3', '3', '--from', '20250103', '--to', '20251226', '--dry-run']), 0)
         self.assertEqual(out.getvalue().count('busan-2025.csv'), 1)   # duplicate meets collapsed
+
+    def test_invalid_period_rejected_even_in_dry_run(self):
+        with mock.patch.object(rt.ds, 'collect') as collect:
+            for start, end in [(date(2025, 2, 1), date(2025, 1, 1)), (date(2024, 1, 1), date(2025, 12, 31))]:
+                with self.assertRaises(KraError):
+                    rt.run(args(start=start, end=end, dry_run=True))
+            collect.assert_not_called()
 
 
 if __name__ == '__main__':

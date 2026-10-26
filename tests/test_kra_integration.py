@@ -21,6 +21,7 @@ class KraIntegrationTests(unittest.TestCase):
         self.prefix = '98' + str(random.randint(10000, 99999))
         self.rows = sample_rows(prefix=self.prefix)
         self.keys = ['1:20100101:91', '1:20100101:92', '1:20100101:93', '1:20100201:91']
+        self.keys += ['2:20100101:91', '3:20100101:91']
         self.where = ','.join(importer.literal(k) for k in self.keys)
         self.assertEqual(mysql(f'SELECT COUNT(*) FROM race WHERE kra_id IN ({self.where});', 'keiba').strip(), '0')
         self.assertEqual(mysql(f"SELECT COUNT(*) FROM horse WHERE kra_id LIKE '{self.prefix}%';", 'keiba').strip(), '0')
@@ -63,6 +64,27 @@ class KraIntegrationTests(unittest.TestCase):
         self.assertEqual(request(f'/races/{race_id}/payouts')[1], [])
         raw = json.loads(mysql(f'SELECT raw_json FROM kra_race_import WHERE race_id={race_id};', 'keiba'))
         self.assertEqual(raw[0]['plcOdds'], '1.7')
+
+    def test_other_tracks_persist_finish_without_inventing_sectionals(self):
+        for meet, code in [('제주', '2'), ('부산경남', '3')]:
+            with self.subTest(meet=meet):
+                rows = sample_rows(meet=meet, prefix=self.prefix)
+                plan = importer.prepare(rows, RETRIEVED)
+                race_id, created = importer.apply(plan)[0]
+                self.assertEqual(created, 1)
+                self.assertEqual(importer.apply(plan), [(race_id, 0)])
+                status, race = request(f'/races/{race_id}')
+                self.assertEqual(status, 200)
+                self.assertEqual(race['race']['surface'], '미제공')
+                self.assertEqual(len(race['entries']), 2)
+                self.assertEqual(race['entries'][0]['oddsRank'], 1)
+                _, runs = request(f'/races/{race_id}/sectionals')
+                self.assertEqual(len(runs[0]['points']), 1)
+                self.assertEqual(runs[0]['markers'], [])
+                self.assertIsNone(runs[0]['last600'])
+                self.assertEqual(mysql(f'SELECT kra_id FROM race WHERE id={race_id};', 'keiba').strip(), f'{code}:20100101:91')
+                raw = json.loads(mysql(f'SELECT raw_json FROM kra_race_import WHERE race_id={race_id};', 'keiba'))
+                self.assertEqual(raw[0]['meet'], meet)
 
     def test_whole_batch_rolls_back_when_existing_source_changes(self):
         original = importer.prepare(self.rows, RETRIEVED)
@@ -107,7 +129,12 @@ class KraIntegrationTests(unittest.TestCase):
         user_id = int(mysql('SELECT id FROM member WHERE email=' + importer.literal(email) + ';', 'keiba'))
         self.addCleanup(lambda: mysql(f'UPDATE member SET is_admin=FALSE WHERE id={user_id};', 'keiba'))
         mysql(f'UPDATE member SET is_admin=TRUE WHERE id={user_id};', 'keiba')
-        self.assertEqual(request(f'/races/{race_id}/prediction', 'POST', token=token)[0], 400)
+        prediction_status, prediction = request(f'/races/{race_id}/prediction', 'POST', token=token)
+        self.assertIn(prediction_status, (200, 503))
+        if prediction_status == 200:
+            self.assertEqual(prediction['modelKind'], 'real_data_experiment')
+        else:
+            self.assertIn('실제 데이터 모델', prediction['message'])
         _, rows = request('/admin/races', token=token)
         row = next(row for row in rows if row['id'] == race_id)
         row['name'] = '수정 시도'

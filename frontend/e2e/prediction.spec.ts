@@ -13,6 +13,16 @@ async function login(page:Page,request:APIRequestContext,label:string){
  await expect(page.locator('h1')).toHaveText('나의 즐겨찾기');
 }
 
+// 인증 토큰은 메모리에만 있으므로 로그인 후에는 화면의 링크로 이동합니다.
+async function openPrediction(page:Page,request:APIRequestContext,raceId:number){
+ const {race}=await (await request.get(API+'/races/'+raceId)).json();
+ await page.getByRole('link',{name:'경주·결과',exact:true}).click();
+ await page.getByLabel('개최일',{exact:true}).fill(race.raceDate);
+ await page.getByRole('button',{name:'검색 ↗'}).click();
+ await page.locator('.race-card[href="/races/'+raceId+'"]').click();
+ await page.getByRole('link',{name:'실험 모델 예측 ↗'}).click();
+}
+
 test('prediction is login-only: the page offers login and the API answers 401 without a token',async({page,request})=>{
  await page.goto('/races/'+SYNTHETIC_RACE+'/prediction');
  await expect(page.locator('h1')).toHaveText('경주 예측 실험실');
@@ -26,7 +36,7 @@ test('prediction is login-only: the page offers login and the API answers 401 wi
 
 test('synthetic race: scores are sorted, bounded, linked, and labelled as unverified',async({page,request})=>{
  await login(page,request,'predict-synthetic');
- await page.goto('/races/'+SYNTHETIC_RACE+'/prediction');
+ await openPrediction(page,request,SYNTHETIC_RACE);
  await expect(page.locator('.eyebrow')).toContainText('SYNTHETIC DATA ONLY');
  await expect(page.locator('.notice').first()).toContainText('실제 예측 능력은 검증되지 않았습니다');
  const run=page.getByRole('button',{name:'출주마 예측 점수 계산 ↗'});
@@ -45,7 +55,7 @@ test('synthetic race: scores are sorted, bounded, linked, and labelled as unveri
 test('prediction outage shows the recovery message and no scores',async({page,request})=>{
  await login(page,request,'predict-outage');
  await page.route('**/api/races/*/prediction',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'예측 서비스를 일시적으로 이용할 수 없습니다. 잠시 후 다시 시도하세요.'})}));
- await page.goto('/races/'+SYNTHETIC_RACE+'/prediction');
+ await openPrediction(page,request,SYNTHETIC_RACE);
  await page.getByRole('button',{name:'출주마 예측 점수 계산 ↗'}).click();
  await expect(page.getByRole('alert')).toContainText('잠시 후 다시 시도하세요');
  await expect(page.locator('.score-row')).toHaveCount(0);
@@ -58,7 +68,7 @@ test('real-data race: model info, market baseline and stored-history notes are s
  const {raceId}=JSON.parse(execFileSync('python3',['../tests/kra_browser_fixture.py','create'],{encoding:'utf8'}));
  try{
   await login(page,request,'predict-real');
-  await page.goto('/races/'+raceId+'/prediction');
+  await openPrediction(page,request,raceId);
   await expect(page.locator('.eyebrow')).toContainText('KRA OPEN DATA MODEL');
   await page.getByRole('button',{name:'출주마 예측 점수 계산 ↗'}).click();
   await expect(page.locator('.score-row')).toHaveCount(2);
@@ -81,7 +91,7 @@ test('real-data race: model info, market baseline and stored-history notes are s
 test('prediction page fits a phone viewport before and after calculating',async({page,request})=>{
  await login(page,request,'predict-mobile');
  await page.setViewportSize({width:375,height:812});
- await page.goto('/races/'+SYNTHETIC_RACE+'/prediction');
+ await openPrediction(page,request,SYNTHETIC_RACE);
  await expect(page.locator('h1')).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBeTruthy();
  await page.getByRole('button',{name:'출주마 예측 점수 계산 ↗'}).click();

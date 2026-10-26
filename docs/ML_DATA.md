@@ -78,3 +78,16 @@ cp .runtime/kra/ml/seoul-2025.csv ml/data/seoul-2025.csv   # PROVENANCE.md 의 �
 ./scripts/up.sh                                              # ML 이미지 재빌드 시 train_real.py 실행
 curl -s http://127.0.0.1:8000/health                         # realDataModel 에 cutoffDate 가 보이면 준비됨
 ```
+
+## 갱신 기간 검증 보강 (2026-10-26)
+
+`refresh_training.py`는 요청한 시작일·종료일 안의 보존 자료만 CSV로 내보냅니다. 다른 연도의 캐시가 있어도 해당 연도 CSV에 섞이지 않습니다. 역전된 기간이나 400일을 넘는 기간은 dry-run 단계부터 거부합니다.
+
+인증키가 설정된 환경에서 여러 경마장 수집·재학습:
+
+```bash
+python3 scripts/refresh_training.py --meets 1 2 3 --from 20250101 --to 20251231 --dry-run
+python3 scripts/refresh_training.py --meets 1 2 3 --from 20250101 --to 20251231
+```
+
+완료 후 `ml/real-model-report.json`의 `dataFiles`, `trainingRows`, `trainingRaces`, `holdoutMetrics`, `marketBaselineMetrics`를 확인하고 `ml/data/PROVENANCE.md`에 실제 수집 범위를 갱신합니다. 그 뒤 `./scripts/up.sh`로 서비스 모델을 재빌드합니다. 이번 클라우드에는 인증키가 없어 이 수집 명령은 dry-run만 검증했습니다.
