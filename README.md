@@ -72,6 +72,8 @@ API 테스트는 실행 중인 Spring/MySQL/FastAPI를 사용하며 테스트 �
 
 ## 한국마사회 API 개발계정 승인 후
 
+2026-10-28: [예측 입력 시점 점검·특성별 비교·미래 최종 검증](docs/ML_EXPERIMENTS.md)을 추가했습니다. 실제 사전 정보 공개 시각은 검증되지 않았으며 서비스 모델 자동 교체는 없습니다.
+
 2026-10-28: [경주불성립·보류 재조회·관리자 상태·PC 예약 갱신·기간별 모델 평가](docs/KRA_OPERATIONS.md)를 추가했습니다. 새 자료 반영과 자동 실행 설정은 해당 절차를 따르세요.
 
 수집한 자료와 DB를 함께 보관하는 방법은 [통합 백업 안내](docs/KRA_BACKUP.md)를 참고하세요.
@@ -100,7 +102,7 @@ python3 scripts/kra.py check --meet 1 --date 20220220 --race 1
 
 OpenAPI는 실행 서버의 `/v3/api-docs`, Swagger UI는 `/swagger-ui/index.html`입니다. 프론트 프록시는 `/api`만 전달하므로 문서는 API 포트에서 확인합니다.
 
-서비스에 연결된 예측 모델은 합성 실험 모델이며 실제 경마 성능은 검증되지 않았습니다. [모델 보고서](ml/model-report.json)의 합성 실험 수치를 실제 정확도로 인용하지 마세요. 별도로 한국마사회 공공데이터(API155, 2025년 서울 833경주)로 같은 구조의 모델을 오프라인 평가한 결과(홀드아웃 ROC-AUC 0.686, 상위 3두 recall 0.466)는 TEST_REPORT.md와 docs/ML_DATA.md에 기록했고 서비스에는 반영하지 않았습니다. 현재 검증 범위와 제한은 TEST_REPORT.md에 기록합니다.
+아래는 초기 합성 모델 단계의 기록입니다. 현재 한국마사회 경주는 실제 자료 실험 모델, 가상 경주는 합성 모델을 사용하며 최신 상태는 [현재 현황](docs/CURRENT_STATUS.md)을 참고하세요. 실제 사전 예측·수익성은 검증되지 않았습니다. [모델 보고서](ml/model-report.json)의 합성 실험 수치를 실제 정확도로 인용하지 마세요. 별도로 한국마사회 공공데이터(API155, 2025년 서울 833경주)로 같은 구조의 모델을 오프라인 평가한 결과(홀드아웃 ROC-AUC 0.686, 상위 3두 recall 0.466)는 TEST_REPORT.md와 docs/ML_DATA.md에 기록했고 서비스에는 반영하지 않았습니다. 현재 검증 범위와 제한은 TEST_REPORT.md에 기록합니다.
 
 GitHub `main`에 소스가 게시되어 있습니다. [Actions 실행 목록](https://github.com/hsubin756-pixel/horse_racing_portal/actions)에서 원격 CI 결과를 확인할 수 있습니다. 이 환경에서는 GitHub API 접근 제한으로 원격 CI 성공 여부를 확인하지 못했습니다.
 
