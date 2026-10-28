@@ -26,13 +26,15 @@ def merge(paths):
     return races
 
 
-def compare(paths, cutoff=None):
+def compare(paths, cutoff=None, test_end=None):
     races = merge(paths)
     days = sorted({r[0]['race_date'].isoformat() for r in races.values()})
     if len(days) < 30:
         raise ValueError('At least 30 distinct dates required')
     cutoff = cutoff or days[int(len(days)*.8)]
     date.fromisoformat(cutoff)
+    if test_end is not None and date.fromisoformat(test_end)<=date.fromisoformat(cutoff):
+        raise ValueError('test_end must be after cutoff')
     result = {'cutoff':cutoff,'dataFiles':[{'path':str(p),'sha256':hashlib.sha256(Path(p).read_bytes()).hexdigest()} for p in paths],
               'cohorts':{},'promoted':False,'limitations':['Single temporal split; scores are not calibrated probabilities.',
               'Compare seoul and seoul_busan on the Seoul test subset with the same cutoff.',
@@ -45,6 +47,7 @@ def compare(paths, cutoff=None):
             result['cohorts'][name] = {'status':'missing_tracks','missing':missing}; continue
         table,y,groups,dates,market = build(subset)
         train,test = dates<cutoff,dates>=cutoff
+        if test_end is not None:test &= dates<test_end
         if len(set(dates[train]))<20 or len(set(dates[test]))<5 or len(set(y[train]))<2:
             result['cohorts'][name] = {'status':'insufficient_dates','trainingDays':len(set(dates[train])),'testDays':len(set(dates[test]))}; continue
         x=np.array([[row[c] for c in SETS['base+connections+physical']] for row in table])
@@ -69,6 +72,7 @@ def compare(paths, cutoff=None):
                 'modelOnMarketSubset':metrics(y[market_mask],scores[market_mask],groups[market_mask],float(y[train].mean())) if market_mask.any() else None}
         result['cohorts'][name]={'status':'evaluated','trainingRaces':len(set(groups[train])),
                                 'testRaces':len(set(groups[test])),'byTrack':track_metrics}
+    result['testEndExclusive']=test_end
     return result
 
 

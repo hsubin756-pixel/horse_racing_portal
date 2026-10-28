@@ -57,7 +57,7 @@ function EntryTable({entries,mode}:{entries:Entry[];mode:'horse'|'race'}) {
       {!commonOdds&&<small>{sourceLabel(e.oddsSource||'제공 자료')}</small>}
       {!commonOdds&&e.oddsAsOf&&<time dateTime={e.oddsAsOf}>{asOf(e.oddsAsOf)} KST {e.oddsSource==='KRA_API214_1'?'수집':'기준'}</time>}
      </>}</td>
-     <td>{e.statusNote||entryStatus[e.status]}</td><td>{e.gate??'미제공'}</td><td>{e.carriedWeight==null?'미제공':e.carriedWeight+'kg'}</td><td>{e.bodyWeight==null?'미제공':e.bodyWeight+'kg'} ({e.weightChange==null?'미제공':(e.weightChange>0?'+':'')+e.weightChange+'kg'})</td><td>{e.timeSeconds??(['SCRATCHED','DNF','DISQUALIFIED'].includes(e.status)?'기록 없음':'미확정')}</td>
+     <td>{e.statusNote||entryStatus[e.status]}</td><td>{e.gate??'미제공'}</td><td>{e.carriedWeight==null?'미제공':e.carriedWeight+'kg'}</td><td>{e.bodyWeight==null?'미제공':e.bodyWeight+'kg'} ({e.weightChange==null?'미제공':(e.weightChange>0?'+':'')+e.weightChange+'kg'})</td><td>{e.timeSeconds??(['SCRATCHED','DNF','DISQUALIFIED','VOID'].includes(e.status)?'기록 없음':'미확정')}</td>
      <td><span className={e.finishPosition===1?'rank winner':'rank'}>{e.finishPosition??'—'}</span></td>
     </tr>)}</tbody>
    </table>
@@ -78,8 +78,8 @@ function RacePage() {
    <div className="eyebrow">RACE DETAIL · {data.race.raceDate}</div>
    <h1>{data.race.name}</h1>
    <p className="sub">{data.race.venue} · {data.race.surface==='미제공'?'주로 정보 미제공 ·':data.race.surface} {data.race.distance}m</p>
-   <RaceFacts race={data.race}/><NoteLink race={data.race.id}/><div className="section-title"><h2>출주마 및 착순 결과</h2>
-    <Link className="button secondary" to={"/races/"+id+"/prediction"}>실험 모델 예측 ↗</Link>
+   <RaceFacts race={data.race}/>{data.race.status==='VOID'&&<p className="notice">경주불성립으로 확정된 경주입니다. 착순·성적 통계·예측 대상에서 제외됩니다.</p>}<NoteLink race={data.race.id}/><div className="section-title"><h2>출주마 및 착순 결과</h2>
+    {!['VOID','CANCELLED'].includes(data.race.status)&&<Link className="button secondary" to={"/races/"+id+"/prediction"}>실험 모델 예측 ↗</Link>}
    </div>
    <RaceWatchButton key={id} id={Number(id)}/><div className="entry-controls"><label htmlFor="entry-sort">출주마 정렬</label>
     <select id="entry-sort" value={sort} onChange={e=>setSort(e.target.value as typeof sort)}>

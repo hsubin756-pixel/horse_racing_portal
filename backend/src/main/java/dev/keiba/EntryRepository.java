@@ -14,7 +14,7 @@ interface EntryRepository extends JpaRepository<Entry,Long> {
 
  @Query("select e from Entry e join fetch e.horse join fetch e.race where e.horse.id in :ids and e.finishPosition is not null and e.status='FINISHED' and e.race.status='OFFICIAL' and e.race.raceDate <= :today order by e.race.raceDate desc, e.race.id desc, e.number asc")
  List<Entry> findForComparison(java.util.Set<Long> ids,LocalDate today);
- @Query("select e.race.id, e.winOdds from Entry e where e.race.id in :ids and e.status<>'SCRATCHED'")
+ @Query("select e.race.id, e.winOdds from Entry e where e.race.id in :ids and e.status not in ('SCRATCHED','VOID')")
  List<Object[]> oddsByRace(java.util.Set<Long> ids);
  @Query("select distinct e.jockey from Entry e order by e.jockey") List<String> jockeyNames();
  @EntityGraph(attributePaths={"horse","race"}) List<Entry> findByJockeyOrderByRaceRaceDateDescRaceIdDesc(String name);

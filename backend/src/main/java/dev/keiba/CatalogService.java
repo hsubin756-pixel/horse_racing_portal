@@ -50,7 +50,7 @@ class CatalogService {
    Long raceId=(Long)row[0]; totals.merge(raceId,1,Integer::sum);
    if(row[1]!=null) odds.computeIfAbsent(raceId,k->new ArrayList<>()).add((java.math.BigDecimal)row[1]);
   }
-  return views.stream().map(v->v.withOddsRank(oddsRank(v.winOdds(),"SCRATCHED".equals(v.status())?null:odds.get(v.raceId()),totals.getOrDefault(v.raceId(),0)))).toList();
+  return views.stream().map(v->v.withOddsRank(oddsRank(v.winOdds(),Set.of("SCRATCHED","VOID").contains(v.status())?null:odds.get(v.raceId()),totals.getOrDefault(v.raceId(),0)))).toList();
  }
  /** 배당이 낮을수록 상위. 같은 배당은 공동 순위(1,2,2,4 방식). own이 null이거나 계산 대상이 아니면 순위를 비웁니다. */
  static OddsRank oddsRank(java.math.BigDecimal own,List<java.math.BigDecimal> field,int total) {

@@ -37,6 +37,9 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?Run scripts/init-env.py}
       ML_URL: http://ml:8000
+      KRA_SYNC_DIR: /data/kra-sync
+    volumes:
+      - ./.runtime/kra/sync/dashboard:/data/kra-sync:ro
     ports: ["127.0.0.1:8080:8080"]
     depends_on:
       db: {condition: service_healthy}

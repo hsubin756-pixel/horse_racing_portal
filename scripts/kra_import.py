@@ -33,7 +33,9 @@ def result_state(row, field):
     if code == '0':
         raise KraError('ord: 착순 미제공(0) 자료입니다. 완료 결과로 반영하지 않습니다.')
     if code == '98' and remark == '경주불성립':
-        raise KraError('ord: 경주불성립(98) 자료입니다. 일반 완료 경주로 반영하지 않습니다.')
+        if row.get('rcTime', '').strip() not in ('', '0', '0.0', '0.00'):
+            raise KraError('ord: 경주불성립에 결승 시간이 제공됐습니다. 확인이 필요합니다.')
+        return 'VOID', None, None, remark
     finish = number(row, 'ord', 1, field)
     if remark not in ('', '-'):
         raise KraError('순위비고가 있는 경주입니다. 코드와 비고의 의미 확인 후 반영해야 합니다.')
@@ -237,10 +239,14 @@ def prepare(rows, retrieved):
                 'jockey': identifier(r, 'jkNo'), 'jockey_name': text(r, 'jkName'),
                 'trainer': trainer, 'trainer_name': trainer_name,
                 'carried': number(r, 'wgBudam', 30, 80, True, 1), 'body': body, 'change': change,
-                'odds': number(r, 'winOdds', 1, 999999, True, 1) if status != 'SCRATCHED' else None, 'points': points, 'corners': corners})
+                'odds': number(r, 'winOdds', 1, 999999, True, 1) if status not in ('SCRATCHED', 'VOID') else None, 'points': points, 'corners': corners})
+        void = [e['status'] == 'VOID' for e in race['entries']]
+        if any(void) and not all(void):
+            raise KraError('ord: 경주불성립과 다른 결과가 혼재합니다. 전체 경주 확인이 필요합니다.')
+        race['status'] = 'VOID' if all(void) else 'OFFICIAL'
         # Competition ranks allow ties (1,1,3), but reject a missing winner/finisher.
         finishes = sorted(e['finish'] for e in race['entries'] if e['status'] == 'FINISHED')
-        if not finishes:
+        if not finishes and race['status'] != 'VOID':
             raise KraError('ord: 완주 결과가 없는 경주입니다. 일반 완료 경주로 반영하지 않습니다.')
         for index, finish in enumerate(finishes):
             if finish != index + 1 and (index == 0 or finish != finishes[index - 1]):
@@ -281,14 +287,14 @@ def sql_plan(races, refresh_sectionals=False):
             f'INSERT INTO kra_assertion VALUES (IF(@new_race=1,1,EXISTS(SELECT 1 FROM kra_race_import WHERE race_id=@rid AND fingerprint={fingerprint})));',
             insert('race', {'name': race['name'], 'race_date': race['date'], 'venue': race['venue'],
                 'distance': race['distance'], 'surface': race['surface'], 'race_class': race['class'],
-                'weather': race['weather'], 'going': race['going'], 'status': 'OFFICIAL',
+                'weather': race['weather'], 'going': race['going'], 'status': race['status'],
                 'source': SOURCE, 'kra_id': race['key']}, '@rid IS NULL'),
             'UPDATE race SET ' + ','.join(f'{k}={literal(v)}' for k, v in {'name': race['name'], 'race_date': race['date'], 'distance': race['distance'],
-                'venue': race['venue'], 'surface': race['surface'], 'race_class': race['class'], 'weather': race['weather'], 'going': race['going'], 'status': 'OFFICIAL', 'source': SOURCE}.items()) + ' WHERE id=@rid AND @planned=1;',
+                'venue': race['venue'], 'surface': race['surface'], 'race_class': race['class'], 'weather': race['weather'], 'going': race['going'], 'status': race['status'], 'source': SOURCE}.items()) + ' WHERE id=@rid AND @planned=1;',
             f'SET @rid=(SELECT id FROM race WHERE kra_id={key});']
         if refresh_sectionals:
             statements += [f'INSERT INTO kra_assertion VALUES (IF(@new_race=0 AND (SELECT COUNT(*) FROM entry WHERE race_id=@rid)={len(race["entries"])},1,0));']
-            statements += [f"INSERT INTO kra_assertion VALUES (EXISTS(SELECT 1 FROM race WHERE id=@rid AND source={literal(SOURCE)} AND distance={race['distance']} AND race_date={literal(race['date'])} AND status='OFFICIAL'));" ]
+            statements += [f"INSERT INTO kra_assertion VALUES (EXISTS(SELECT 1 FROM race WHERE id=@rid AND source={literal(SOURCE)} AND distance={race['distance']} AND race_date={literal(race['date'])} AND status={literal(race['status'])}));" ]
         for entry in race['entries']:
             for kind, role, var in [('JOCKEY', 'jockey', '@jid'), ('TRAINER', 'trainer', '@tid')]:
                 if entry[role] is None:

@@ -74,6 +74,8 @@ def save(path, state):
         lines.append('<tr>'+''.join('<td>'+html.escape(str(c))+'</td>' for c in cells)+'</tr>')
     lines.append('</table><h2>학습 CSV</h2><pre>'+html.escape(json.dumps(state.get('exports',{}),ensure_ascii=False,indent=2))+'</pre><h2>경마장별 평가</h2><p>'+html.escape(state.get('evaluation','평가 실행 전'))+'</p></html>')
     kra.private_write(path.with_suffix('.html'), '\n'.join(lines))
+    from kra_status import publish
+    publish(path,state)
 
 
 def summary(state):

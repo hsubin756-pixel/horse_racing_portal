@@ -149,6 +149,19 @@ class KraImportTests(unittest.TestCase):
         self.assertEqual(json.loads(race['raw']), rows)
         self.assertIn('finish_position<=>NULL', importer.sql_plan([race], refresh_sectionals=True))
 
+    def test_all_void_results_preserve_roster_and_drop_results_odds_and_sectionals(self):
+        rows=sample_rows()
+        for row in rows:row.update(ord='98',ordBigo='경주불성립',rcTime='0')
+        race=importer.prepare(rows,RETRIEVED)[0]
+        self.assertEqual(race['status'],'VOID')
+        for entry in race['entries']:
+            self.assertEqual(entry['status'],'VOID')
+            self.assertIsNone(entry['finish']);self.assertIsNone(entry['time']);self.assertIsNone(entry['odds'])
+            self.assertEqual(entry['points'],{});self.assertEqual(entry['corners'],[])
+        self.assertEqual(json.loads(race['raw']),rows)
+        rows[0]['rcTime']='75'
+        with self.assertRaises(kra.KraError):importer.prepare(rows,RETRIEVED)
+
     def test_non_finisher_mismatch_unknown_results_and_rank_gaps_stay_held(self):
         for changes in [dict(ord='92',ordBigo='출전취소',rcTime='0'),
                         dict(ord='94',ordBigo='경주제외',rcTime='75'),

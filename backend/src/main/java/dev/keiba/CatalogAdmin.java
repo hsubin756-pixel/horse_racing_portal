@@ -66,11 +66,12 @@ class CatalogAdmin {
   for(String key:List.of("as_of","odds_as_of"))if(row.get(key)!=null)try{row.put(key,java.sql.Timestamp.from(Instant.parse(str(row,key))));}catch(Exception e){bad(key+" UTC 시각(예: 2026-10-23T03:00:00Z)");}
   switch(kind){
    case "horses"->{required(row,"name","sex","birth_date","color","trainer");choice(row,"sex","수","암","거");ref(row,"trainer_id","person");ref(row,"sire_id","horse");ref(row,"dam_id","horse");person(row,"trainer_id","TRAINER","trainer");for(String f:List.of("sire_id","dam_id"))if(n(row,f)>0&&n(row,f)==n(row,"id"))bad("자기 자신을 부모로 지정할 수 없습니다");}
-   case "races"->{required(row,"name","race_date","venue","distance","surface","status","source");range(row,"distance",400,10000);choice(row,"surface","잔디","더트","장애");choice(row,"status","SCHEDULED","RUNNING","OFFICIAL","CANCELLED");for(String f:List.of("race_class","weather","going"))if(str(row,f).length()>(f.equals("race_class")?60:30))bad(f);}
-   case "entries"->{required(row,"race_id","horse_id","number","jockey","status");ref(row,"race_id","race");ref(row,"horse_id","horse");ref(row,"jockey_id","person");person(row,"jockey_id","JOCKEY","jockey");range(row,"number",1,30);range(row,"gate",1,30);range(row,"carried_weight",30,80);range(row,"body_weight",200,800);range(row,"weight_change",-100,100);range(row,"finish_position",1,30);range(row,"time_seconds",1,9999);range(row,"popularity_rank",1,30);range(row,"win_odds",1,999999);choice(row,"status","DECLARED","FINISHED","SCRATCHED","DNF","DISQUALIFIED");
+   case "races"->{required(row,"name","race_date","venue","distance","surface","status","source");range(row,"distance",400,10000);choice(row,"surface","잔디","더트","장애");choice(row,"status","SCHEDULED","RUNNING","OFFICIAL","CANCELLED","VOID");for(String f:List.of("race_class","weather","going"))if(str(row,f).length()>(f.equals("race_class")?60:30))bad(f);}
+   case "entries"->{required(row,"race_id","horse_id","number","jockey","status");ref(row,"race_id","race");ref(row,"horse_id","horse");ref(row,"jockey_id","person");person(row,"jockey_id","JOCKEY","jockey");range(row,"number",1,30);range(row,"gate",1,30);range(row,"carried_weight",30,80);range(row,"body_weight",200,800);range(row,"weight_change",-100,100);range(row,"finish_position",1,30);range(row,"time_seconds",1,9999);range(row,"popularity_rank",1,30);range(row,"win_odds",1,999999);choice(row,"status","DECLARED","FINISHED","SCRATCHED","DNF","DISQUALIFIED","VOID");
     if(str(row,"status").equals("FINISHED"))required(row,"finish_position");else if(row.get("finish_position")!=null)bad("미완주/미출전 말의 착순");
-    if(Set.of("DECLARED","SCRATCHED").contains(str(row,"status"))&&row.get("time_seconds")!=null)bad("미출전 말의 기록");
+    if(Set.of("DECLARED","SCRATCHED","VOID").contains(str(row,"status"))&&row.get("time_seconds")!=null)bad("미출전 말의 기록");
     boolean hasOdds=row.get("popularity_rank")!=null||row.get("win_odds")!=null;
+    if("VOID".equals(str(row,"status"))&&hasOdds)bad("불성립 경주의 인기·배당");
     if(hasOdds){required(row,"odds_source","odds_as_of");}else if(row.get("odds_source")!=null||row.get("odds_as_of")!=null)bad("인기 또는 배당 없이 출처/시각만 입력할 수 없습니다");
    }
    case "sectionals"->{required(row,"entry_id","distance","source");ref(row,"entry_id","entry");range(row,"distance",1,10000);range(row,"position",1,30);range(row,"cumulative_seconds",.01,99999);if(row.get("position")==null&&row.get("cumulative_seconds")==null)bad("순위 또는 누적 시간");}
@@ -138,22 +139,24 @@ class CatalogAdmin {
  void validateRace(long id){
   editable("races",id);
   var race=db.queryForMap("SELECT * FROM race WHERE id=?",id);var entries=db.queryForList("SELECT * FROM entry WHERE race_id=?",id);
+  if("VOID".equals(race.get("status")) && entries.stream().anyMatch(e->!"VOID".equals(e.get("status"))))bad("불성립 경주의 출전 상태");
+  if(!"VOID".equals(race.get("status")) && entries.stream().anyMatch(e->"VOID".equals(e.get("status"))))bad("일반 경주의 불성립 출전 상태");
   long field=entries.stream().filter(e->!"SCRATCHED".equals(e.get("status"))).count();
   if("OFFICIAL".equals(race.get("status"))&&entries.stream().anyMatch(e->"DECLARED".equals(e.get("status"))))bad("결과 확정 전 미확정 출전 상태");
-  if("SCHEDULED".equals(race.get("status"))&&entries.stream().anyMatch(e->!Set.of("DECLARED","SCRATCHED").contains(str(e,"status"))))bad("예정 경주의 결과");
+  if("SCHEDULED".equals(race.get("status"))&&entries.stream().anyMatch(e->!Set.of("DECLARED","SCRATCHED","VOID").contains(str(e,"status"))))bad("예정 경주의 결과");
   for(var e:entries){if(n(e,"popularity_rank")>entries.size())bad("등록 두수를 초과한 인기 순위");if(n(e,"finish_position")>field)bad("출전 두수를 초과한 착순");
    var points=db.queryForList("SELECT * FROM sectional WHERE entry_id=? ORDER BY distance",e.get("id"));
-   if(!points.isEmpty()&&Set.of("DECLARED","SCRATCHED").contains(str(e,"status")))bad("미출전 말의 구간 기록");
+   if(!points.isEmpty()&&Set.of("DECLARED","SCRATCHED","VOID").contains(str(e,"status")))bad("미출전 말의 구간 기록");
    double previous=0;for(var p:points){if(n(p,"distance")>n(race,"distance")||n(p,"position")>field)bad("구간 거리/순위");if(p.get("cumulative_seconds")!=null){double time=decimal(p.get("cumulative_seconds")).doubleValue();if(time<=previous)bad("증가하지 않는 누적 시간");previous=time;
      if(e.get("time_seconds")!=null&&(time>decimal(e.get("time_seconds")).doubleValue()||n(p,"distance")==n(race,"distance")&&decimal(p.get("cumulative_seconds")).compareTo(decimal(e.get("time_seconds")))!=0))bad("결승 기록과 구간 기록 불일치");}
     if(n(p,"distance")==n(race,"distance")&&p.get("position")!=null&&e.get("finish_position")!=null&&n(p,"position")!=n(e,"finish_position"))bad("결승 통과 순위 불일치");
    }
   }
   for(var p:db.queryForList("SELECT * FROM payout WHERE race_id=?",id)){
-   String state=str(p,"status");if(state.equals("FINAL")&&!str(race,"status").equals("OFFICIAL"))bad("결과 확정 전 확정 환급표");if(state.equals("OPEN")&&Set.of("OFFICIAL","CANCELLED").contains(str(race,"status")))bad("종료 경주의 예상 배당");
+   String state=str(p,"status");if(state.equals("FINAL")&&!str(race,"status").equals("OFFICIAL"))bad("결과 확정 전 확정 환급표");if(state.equals("OPEN")&&Set.of("OFFICIAL","CANCELLED","VOID").contains(str(race,"status")))bad("종료 경주의 예상 배당");
    for(String part:str(p,"combination").split("-")){long number=number(part);var e=entries.stream().filter(x->n(x,"number")==number).findFirst().orElseThrow(()->new ApiException(400,"출주표에 없는 조합 마번입니다."));if(!state.equals("REFUND")&&str(e,"status").equals("SCRATCHED"))bad("출전 취소마의 배당");}
    var selected=Arrays.stream(str(p,"combination").split("-")).map(part->entries.stream().filter(e->n(e,"number")==number(part)).findFirst().orElseThrow()).toList();
-   if(state.equals("REFUND")&&!str(race,"status").equals("CANCELLED")&&selected.stream().noneMatch(e->str(e,"status").equals("SCRATCHED")))bad("환불 대상이 아닌 조합");
+   if(state.equals("REFUND")&&!Set.of("CANCELLED","VOID").contains(str(race,"status"))&&selected.stream().noneMatch(e->str(e,"status").equals("SCRATCHED")))bad("환불 대상이 아닌 조합");
    if(state.equals("FINAL")){
     if(selected.stream().anyMatch(e->!str(e,"status").equals("FINISHED")||n(e,"finish_position")==0))bad("미완주 조합의 확정 환급");
     var actual=selected.stream().map(e->n(e,"finish_position")).toList();String market=str(p,"market");

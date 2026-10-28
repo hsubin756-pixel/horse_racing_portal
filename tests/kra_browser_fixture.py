@@ -25,6 +25,8 @@ def main():
             rows = mixed_result_rows(prefix=PREFIX, race_no=94)
             rows[3].update(trNo='',trName='이름만 제공된 조교사')
             rows[4].update(trNo='',trName='')
+        if len(sys.argv) > 3 and sys.argv[3] == 'void':
+            for row in rows:row.update(ord='98',ordBigo='경주불성립',rcTime='0')
         for row in rows:
             row['rcNo'] = '94'
         plan = prepare(rows, RETRIEVED)

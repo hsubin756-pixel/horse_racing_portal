@@ -60,12 +60,30 @@ class KraIntegrationTests(unittest.TestCase):
             importer.apply(plan,refresh_sectionals=True)
             self.assertEqual(request(f'/races/{rid}')[1]['entries'],entries)
 
-    def test_unprovided_and_void_results_cannot_be_imported(self):
-        for code,note in [('0','-'),('98','경주불성립')]:
+    def test_unprovided_results_cannot_be_imported(self):
+        for code,note in [('0','-')]:
             rows=sample_rows(prefix=self.prefix)
             for row in rows:row.update(ord=code,ordBigo=note,rcTime='0')
             with self.assertRaises(KraError):importer.apply(importer.prepare(rows,RETRIEVED))
             self.assertEqual(mysql(f'SELECT COUNT(*) FROM race WHERE kra_id IN ({self.where});','keiba').strip(),'0')
+
+    def test_void_race_is_visible_but_not_a_result_or_prediction(self):
+        rows=sample_rows(prefix=self.prefix)
+        for row in rows:row.update(ord='98',ordBigo='경주불성립',rcTime='0')
+        plan=importer.prepare(rows,RETRIEVED);rid=importer.apply(plan)[0][0]
+        data=request(f'/races/{rid}')[1];self.assertEqual(data['race']['status'],'VOID')
+        for entry in data['entries']:
+            self.assertEqual(entry['status'],'VOID');self.assertIsNone(entry['oddsRank'])
+            self.assertIsNone(entry['finishPosition']);self.assertIsNone(entry['timeSeconds'])
+            self.assertEqual(request(f"/horses/{entry['horseId']}/history")[1],[])
+            stats=request(f"/horses/{entry['horseId']}/stats")[1]
+            self.assertEqual(stats['horses'][0]['statistics']['totals']['starts'],0)
+        body={'email':'void-'+uuid.uuid4().hex+'@example.test','password':'Void-test-password123','nickname':'검증 회원'}
+        self.assertEqual(request('/auth/register','POST',body)[0],201)
+        token=request('/auth/login','POST',body)[1]['token']
+        status,response=request(f'/races/{rid}/prediction','POST',token=token)
+        self.assertEqual(status,400);self.assertIn('불성립',response['message'])
+        self.assertEqual(importer.apply(plan),[(rid,0)])
 
     def test_retry_archived_empty_weight_change_without_network(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -255,9 +273,20 @@ class KraIntegrationTests(unittest.TestCase):
         body = {'email': email, 'password': 'KraTest-password123', 'nickname': '검증 회원'}
         self.assertEqual(request('/auth/register', 'POST', body)[0], 201)
         token = request('/auth/login', 'POST', body)[1]['token']
+        self.assertEqual(request('/admin/kra-status')[0],401)
+        self.assertEqual(request('/admin/kra-status',token=token)[0],403)
         user_id = int(mysql('SELECT id FROM member WHERE email=' + importer.literal(email) + ';', 'keiba'))
         self.addCleanup(lambda: mysql(f'UPDATE member SET is_admin=FALSE WHERE id={user_id};', 'keiba'))
         mysql(f'UPDATE member SET is_admin=TRUE WHERE id={user_id};', 'keiba')
+        from kra_status import publish
+        snapshot=kra_sync.STATE/'dashboard/19990101-19990101-1.json'
+        self.assertFalse(snapshot.exists());self.addCleanup(lambda:snapshot.unlink(missing_ok=True))
+        publish(kra_sync.STATE/'19990101-19990101-1.json',{'calls':7,'tasks':{'1:19990101':{'site':'보류 있음','training':'수집 완료','archive':'/private/never-expose','races':{'1':{'error':'ord: 미제공'}}}}})
+        status,health=request('/admin/kra-status',token=token)
+        self.assertEqual(status,200);self.assertIn('database',health);self.assertIn('jobs',health)
+        job=next(j for j in health['jobs'] if j['id']=='19990101-19990101-1')
+        self.assertEqual(job['heldRaces'],1);self.assertEqual(job['calls'],7)
+        self.assertNotIn('/private',json.dumps(health))
         prediction_status, prediction = request(f'/races/{race_id}/prediction', 'POST', token=token)
         self.assertIn(prediction_status, (200, 503))
         if prediction_status == 200:

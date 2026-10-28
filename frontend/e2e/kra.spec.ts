@@ -1,6 +1,20 @@
 import {test,expect} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 
+test('void race preserves roster, shows no placings and offers no prediction',async({page})=>{
+ const {raceId}=JSON.parse(execFileSync('python3',['../tests/kra_browser_fixture.py','create','서울','void'],{encoding:'utf8'}));
+ try{
+  await page.goto('/races/'+raceId);
+  await expect(page.getByText('경주불성립으로 확정된 경주입니다.',{exact:false})).toBeVisible();
+  await expect(page.getByRole('link',{name:'실험 모델 예측 ↗'})).toHaveCount(0);
+  await expect(page.locator('.entry-table tbody tr')).toHaveCount(2);
+  for(const row of await page.locator('.entry-table tbody tr').all()){
+   await expect(row.locator('.rank')).toHaveText('—');
+   await expect(row.getByRole('cell',{name:'경주불성립',exact:true})).toBeVisible();
+  }
+ }finally{execFileSync('python3',['../tests/kra_browser_fixture.py','clean',String(raceId)]);}
+});
+
 test('non-finishers retain distinct remarks without invented times or scratched popularity',async({page})=>{
  const {raceId}=JSON.parse(execFileSync('python3',['../tests/kra_browser_fixture.py','create','서울','nonfinishers'],{encoding:'utf8'}));
  try{
