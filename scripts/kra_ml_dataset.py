@@ -228,6 +228,8 @@ def main():
     e = sub.add_parser('export', help='보존 자료를 CSV로')
     e.add_argument('--meet', required=True, choices=sorted(MEETS))
     e.add_argument('--output', required=True)
+    e.add_argument('--from', dest='start', type=parse_day, help='내보낼 시작일(포함); 생략 시 보존 자료 전체')
+    e.add_argument('--to', dest='end', type=parse_day, help='내보낼 종료일(포함); 생략 시 보존 자료 전체')
     args = parser.parse_args()
     try:
         if args.command == 'collect':
@@ -235,7 +237,7 @@ def main():
                 raise KraError('--max-calls 는 1~1000 입니다.')
             collect(args.meet, args.start, args.end, args.max_calls, args.all_days)
         else:
-            export(args.meet, args.output)
+            export(args.meet, args.output, start=args.start, end=args.end)
     except (KraError, UnicodeError, ValueError) as exc:
         print(str(exc) if isinstance(exc, KraError) else '보존 파일 또는 응답 형식을 확인하세요.', file=sys.stderr)
         return 1

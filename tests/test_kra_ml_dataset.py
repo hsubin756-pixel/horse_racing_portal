@@ -46,6 +46,23 @@ class DatasetTests(unittest.TestCase):
                 ds.export('1', out, start=date(2023, 1, 1), end=date(2023, 12, 31))
             self.assertEqual(out.read_bytes(), before)
 
+    def test_export_cli_separates_final_history_from_frozen_training(self):
+        days = [day(d, [starter(1, g, f'004423{g}', str(g)) for g in range(1, 5)])
+                for d in ('2026-10-25', '2026-10-26', '2026-11-30', '2026-12-01')]
+        with tempfile.TemporaryDirectory() as folder, mock.patch.object(ds, 'load_days', return_value=days), mock.patch('builtins.print'):
+            out = Path(folder) / 'final.csv'
+            argv = ['kra_ml_dataset.py', 'export', '--meet', '1', '--from', '20261026', '--to', '20261130', '--output', str(out)]
+            with mock.patch.object(sys, 'argv', argv):
+                self.assertEqual(ds.main(), 0)
+            with out.open() as source:
+                written = list(csv.DictReader(source))
+            self.assertEqual({r['race_date'] for r in written}, {'2026-10-26', '2026-11-30'})
+            before = out.read_bytes()
+            argv[argv.index('20261026')] = '20261202'
+            with mock.patch.object(sys, 'argv', argv), mock.patch('sys.stderr'):
+                self.assertEqual(ds.main(), 1)
+            self.assertEqual(out.read_bytes(), before)
+
     def test_keeps_complete_races_and_reports_dropped_ones(self):
         good = [starter(1, g, f'004423{g}', str(g)) for g in range(1, 6)]
         tie = [starter(2, g, f'004424{g}', '1' if g < 3 else str(g)) for g in range(1, 6)]
