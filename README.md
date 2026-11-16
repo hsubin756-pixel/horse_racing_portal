@@ -50,8 +50,8 @@ npm run dev
 이미 전체 Compose가 실행 중이면 backend/frontend 컨테이너를 먼저 중지해 포트 충돌을 해소하세요. 로컬 백엔드는 `python3 scripts/backend-local.py stop`으로 종료합니다. Vite 프록시가 8080 API를 전달합니다. ML 모델은 컨테이너에서 학습되므로 호스트 Python 학습은 필수가 아닙니다.
 
 ```bash
-# 별도로 호스트에서 ML 개발/테스트
-python3 -m venv .runtime/ml-venv
+# 별도로 호스트에서 ML 개발/테스트 (Python 3.12 또는 3.13 필요: 고정된 numpy 2.2.6이 3.14용 휠을 제공하지 않음)
+python3.12 -m venv .runtime/ml-venv   # 없으면: curl -LsSf https://astral.sh/uv/install.sh | sh && ~/.local/bin/uv python install 3.12
 .runtime/ml-venv/bin/pip install --cache-dir .runtime/pip -r ml/requirements.lock
 .runtime/ml-venv/bin/python ml/train.py
 .runtime/ml-venv/bin/python -m unittest discover -s ml -p 'test_*.py' -v
