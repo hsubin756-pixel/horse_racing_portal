@@ -305,3 +305,10 @@ JWT 만료 필드가 없는 서명 토큰의 허용 가능성을 차단했습니
 - API155 dataset 검사7개 통과. 추가 CLI 검사에서 --from 20261026 --to 20261130 양끝은 포함하고 10/25·12/1은 제외했습니다. 역전 날짜는 기존 CSV를 덮어쓰기 전에 거부합니다. refresh_training 기존7개도 통과했습니다.
 - 실제 커밋된 서울2025 비교 보고서로 CLI prepare/복사 실행기 verify 성공: 97일·1,018경주·10,555건, .runtime/kra/validation/cloud-seoul-smoke. 이는 준비 도구의 별도 검증이며 사용자 제주 계획이 아닙니다. 서비스 모델 파일 생성·API 호출·DB/프론트엔드 변경은 없었습니다.
 - 사용자 PC의 제주 묶음 생성, 첫 실제 예약 자동 실행 결과, 11월 실제 수집/최종 평가는 미확인·미실행입니다. 원본 CSV는 사용자 PC에 있어 안내한 prepare 명령으로 고정해야 합니다. 미래 기간 종료 전 평가하지 않습니다.
+
+## 패치 0021 ML 빌드 Python 선택 — 사용자 PC 직접 확인 (2026-11-16)
+- 환경: WSL2 Ubuntu 26.04, 커밋 `1005028`. `uv python find 3.12`로 찾은 CPython 3.12를 `ML_PYTHON`으로 지정해 `./scripts/up.sh`를 실행했고 종료 코드 0이었습니다.
+- `.runtime/ml-venv`가 Python 3.12로 생성됐고 numpy 2.2.6·scipy 1.18.1·scikit-learn 1.6.1·pydantic_core 2.33.2가 cp312 manylinux wheel로 `ml/.wheels`에 저장됐습니다. 소스 빌드 시도는 없었습니다. ML 단위 테스트 **30개 OK**, Gradle `BUILD SUCCESSFUL`, Vite production build 성공.
+- 첫 실행에서 compose는 변경이 없다고 보고 기존 컨테이너를 재사용했습니다. 새 이미지로 기동되는지 확인하기 위해 `docker compose up -d --force-recreate` 후 `wait-ready.py`를 다시 실행해 DB·Spring·ML·프론트 프록시 준비를 확인했습니다. 네 컨테이너 모두 방금 빌드한 이미지로 실행 중이며 db/ml은 healthy입니다.
+- 실제 API 통합 테스트와 Chromium 시나리오는 이번 변경(빌드 스크립트·README만 수정)에서 재실행하지 않았습니다. Python 3.13 경로와 uv가 없는 환경의 안내 출력은 직접 실행하지 않았습니다.
+- GitHub main 반영: 사용자가 직접 push했고 `origin/main`이 `1005028`과 일치함을 확인했습니다.

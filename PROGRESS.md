@@ -160,3 +160,7 @@ JUnit 20개·실제 API 24개·Chromium 10개 시나리오 통과, V1~V8 신규 
 - validation_bundle.py prepare/verify/final: 비교 보고서 입력 해시 검증, 선택 경마장 학습 스냅샷, 코드/실행기/수치 환경/근거/계획 보존, 복사 코드로 평가, 조기/중복/환경·파일 변경 거부, 결과 해시·비승격 판정 저장. 기존 CSV/서비스 모델 수정 없음.
 - API155 export에 양끝 포함 --from/--to를 연결해 고정 학습 자료와 최종 기간 입력을 분리. collect/API 호출 동작은 변경하지 않음.
 - 사용자 제주 묶음 준비와 실제 11월 최종 평가는 아직 미실행. 실행 절차 docs/ML_VALIDATION_PLAN.md.
+
+## ML 빌드 Python 버전 선택 (패치 0021) — 2026-11-16
+- 사용자 PC(WSL Ubuntu 26.04)의 기본 python3 3.14에서 numpy 2.2.6 wheel이 없어 소스 컴파일이 실패하던 문제를 수정했습니다. `build.sh`가 python3.12/3.13 또는 `ML_PYTHON`을 사용하고, 지원하지 않는 인터프리터로 만든 venv는 재생성하며, 호스트와 무관하게 `python:3.12-slim`용 cp312 manylinux wheel을 받습니다. uv로 3.12를 준비하는 방법을 README에 안내했습니다.
+- 사용자 PC에서 `ML_PYTHON=$(~/.local/bin/uv python find 3.12) ./scripts/up.sh` 전체 기동을 확인하고 GitHub main에 반영했습니다. 서비스 코드·DB·모델 변경은 없습니다. 세부는 TEST_REPORT.md.
