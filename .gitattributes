@@ -1,0 +1,31 @@
+# 줄바꿈 정책: 저장소와 작업 트리 모두 LF로 고정합니다.
+# Windows에서 core.autocrlf=true로 받아도 셸 스크립트·Dockerfile이 CRLF로 바뀌어
+# 컨테이너 안에서 "bad interpreter" 오류가 나거나, WSL git에서 전 파일이 수정됨으로
+# 보이는 문제를 막습니다.
+* text=auto eol=lf
+
+# 컨테이너·리눅스에서 실행되는 파일은 명시적으로 LF
+*.sh        text eol=lf
+Dockerfile  text eol=lf
+*.py        text eol=lf
+*.sql       text eol=lf
+*.gradle    text eol=lf
+
+# Windows 전용 스크립트만 CRLF
+*.ps1       text eol=crlf
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+
+# 바이너리: 줄바꿈 변환·diff 제외
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.docx      binary
+*.xlsx      binary
+*.pdf       binary
+*.jar       binary
+*.joblib    binary
+*.whl       binary
+*.gz        binary
