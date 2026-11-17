@@ -312,3 +312,7 @@ JWT 만료 필드가 없는 서명 토큰의 허용 가능성을 차단했습니
 - 첫 실행에서 compose는 변경이 없다고 보고 기존 컨테이너를 재사용했습니다. 새 이미지로 기동되는지 확인하기 위해 `docker compose up -d --force-recreate` 후 `wait-ready.py`를 다시 실행해 DB·Spring·ML·프론트 프록시 준비를 확인했습니다. 네 컨테이너 모두 방금 빌드한 이미지로 실행 중이며 db/ml은 healthy입니다.
 - 실제 API 통합 테스트와 Chromium 시나리오는 이번 변경(빌드 스크립트·README만 수정)에서 재실행하지 않았습니다. Python 3.13 경로와 uv가 없는 환경의 안내 출력은 직접 실행하지 않았습니다.
 - GitHub main 반영: 사용자가 직접 push했고 `origin/main`이 `1005028`과 일치함을 확인했습니다.
+
+## 패치 0022~0025 — 클라우드 정적 검사만 수행 (2026-11-17)
+- 실행함: `git am` 순서 적용, `git add --renormalize`로 줄바꿈 변경 대상 0건 확인, JDK 21 `javac -proc:none`(클래스패스 없음)으로 변경 전·후 전체 소스의 오류 목록 비교 — 패키지 이동·가시성 관련 신규 오류 0건.
+- 실행하지 못함: `./scripts/gradle.sh build`(Maven Central 차단), 신규 JUnit 30개, Spring 컨텍스트 기동, `@WebMvcTest` 슬라이스, API 통합·Chromium 시나리오. 사용자 PC에서 실행해 아래에 결과를 추가해야 합니다.

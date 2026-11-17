@@ -1,125 +1,149 @@
 # KEIBA FIELD — 경마 데이터 포털
 
-최근 3개월 전적 수집·재개·진행표·경마장별 평가와 출주마 구간 비교는 [운영 절차](docs/KRA_SYNC.md)를 참고하세요.
+netkeiba.com의 정보 구조를 참고해 만든 **풀스택 경마 정보 서비스**입니다. React 화면이 Spring Boot REST API를 호출하고, API가 MySQL에서 경주마·경주·전적·혈통·회원 데이터를 읽고 씁니다. 로그인한 회원은 별도의 FastAPI 서비스에서 경주 예측 점수를 받을 수 있습니다.
 
-가상 샘플과 한국마사회 공식 자료를 구분해 탐색하는 풀스택 경마 정보 포털입니다. React 화면에서 Spring Boot REST API를 호출하여 MySQL의 말·경주·전적·혈통·회원·즐겨찾기를 조회하고 변경합니다. 회원 전용 예측 기능은 가상 경주와 한국마사회 경주에 각각의 실험 모델을 사용합니다. [현재 구현·검증 범위](docs/CURRENT_STATUS.md)를 먼저 확인하세요.
+기본으로 설치되는 데이터는 **가상 샘플**(말 40두·경주 8개·출전 96건)입니다. 한국마사회 공공데이터 API로 받은 **실제 경주 결과**는 사용자 PC에서 따로 수집해 반영하며, 화면과 DB에서 출처로 구분합니다. netkeiba의 데이터·로고·디자인 자산은 사용하지 않습니다.
 
-실제 netkeiba 데이터/로고는 사용하지 않습니다. 기본으로 설치되는 말 40두·경주 8개·출전 96건은 가상 데이터입니다. 한국마사회 경주/프로필/예정 경주는 공식 API 자료를 로컬에서 별도로 반영할 수 있습니다. 2025년 서울 경주 학습용 CSV는 저장소에 포함돼 있습니다. 실시간 배당 수집·베팅·예측 정확도 보장은 범위에 포함되지 않습니다.
+![메인 화면](docs/images/home-desktop.png)
 
-![실제 통합 서비스 데스크톱 화면](docs/images/home-desktop.png)
+| 경주마 주행 스타일 | 모바일 |
+|---|---|
+| ![주행 스타일](docs/images/running-style-desktop.png) | ![모바일 메인](docs/images/home-mobile.png) |
 
-## 기술
-React 19 · Vite 7.3.7 · TypeScript · React Router / Java 21 · Spring Boot 3.5 · Security · JWT · BCrypt · JPA / MySQL 8.4 · Flyway / Python 3.12 · FastAPI · scikit-learn / Gradle 8.14.3 · Docker Compose · JUnit · Python unittest · Playwright.
+## 주요 기능
+
+| 영역 | 내용 |
+|---|---|
+| 경주마 | 부분 이름 검색, 20건 페이지, 정렬 → 상세(기본 정보·최신순 전적·주행 스타일) |
+| 경주 | 경주명·개최일 검색 → 출마표·착순·기록·인기·단승 배당, 구간 통과 순위 비교 |
+| 혈통 | 부마·모마 자기 참조 관계로 3대 혈통 트리, 누락 조상 표시 |
+| 회원 | 회원가입·로그인(JWT)·로그아웃(토큰 철회), BCrypt 해시 저장 |
+| 즐겨찾기 | 경주마·경주 관심 등록, 관심 말 출전 예정을 합친 90일 일정 |
+| 분석 | 최대 4두 비교, 말·기수의 거리·주로·기간별 성적 |
+| 예측 (회원 전용) | Spring → FastAPI 호출, 출주마별 점수와 면책 문구, ML 장애 시 503 안내 |
+| 운영 | 관리자 자료 편집·CSV 미리보기·변경 이력, 한국마사회 수집 상태 화면 |
+
+## 기술 스택
+
+- **Backend**: Java 21, Spring Boot 3.5, Spring Security, JWT(jjwt), Spring Data JPA, Bean Validation, springdoc-openapi
+- **Database**: MySQL 8.4, Flyway(V1~V12 마이그레이션, Hibernate는 `validate`만)
+- **Frontend**: React 19, TypeScript, Vite, React Router
+- **ML**: Python 3.12, FastAPI, scikit-learn
+- **Infra / Test**: Docker Compose, Gradle, JUnit 5 + Mockito + MockMvc, Python unittest, Playwright, GitHub Actions
+
+## 아키텍처
+
+```mermaid
+flowchart LR
+ Browser[React SPA] -->|REST + Bearer JWT| Nginx[Nginx 프록시]
+ Nginx --> Spring
+ subgraph Spring[Spring Boot]
+  direction TB
+  Sec[security<br/>JwtFilter → SecurityConfig] --> Ctl[Controller]
+  Ctl --> Svc[Service<br/>트랜잭션·도메인 규칙]
+  Svc --> Repo[Repository<br/>Spring Data JPA]
+ end
+ Repo -->|JPA / JDBC| DB[(MySQL)]
+ Svc -->|HTTP, 3초 타임아웃| ML[FastAPI<br/>scikit-learn]
+```
+
+백엔드는 기능별 패키지로 나눴습니다. 패키지 사이에는 public으로 공개한 서비스·DTO만 오가고, 엔티티 필드는 패키지 안에서만 다룹니다.
+
+```text
+dev.keiba
+├── common      예외 → HTTP 응답 변환, 헬스 체크, 시계(Clock) 설정
+├── security    SecurityConfig, JwtFilter, JwtService
+├── member      회원가입·로그인·로그아웃, 철회 토큰
+├── catalog     Horse·Race·Entry 엔티티, 검색·상세·전적·혈통, 구간 기록, 기수·조교사
+├── analytics   조건별 성적 비교
+├── favorite    경주마 즐겨찾기, 관심 경주·일정
+├── note        개인 메모, 사이트 알림
+├── prediction  예측 입력 수집(트랜잭션 안) → FastAPI 호출(트랜잭션 밖)
+└── admin       관리자 자료 편집·감사 기록, 수집 상태
+```
+
+자세한 호출 흐름은 [ARCHITECTURE.md](ARCHITECTURE.md), [docs/STRUCTURE.md](docs/STRUCTURE.md), [docs/LEARNING.md](docs/LEARNING.md)에 있습니다.
+
+## 설계하면서 고민한 점
+
+**1. 경주마와 경주의 다대다 관계를 `Entry`로 표현**
+한 말은 여러 경주에 나가고 한 경주에는 여러 말이 나갑니다. 착순·마번·기수·기록은 말이나 경주가 아니라 "이 경주에 나간 이 말"에 속하는 값이라서, `@ManyToMany` 대신 `Entry` 엔티티를 두고 `(race_id, horse_id)`, `(race_id, number)`에 UNIQUE 제약을 걸었습니다. → [ERD.md](ERD.md)
+
+**2. 인증은 화면이 아니라 서버가 강제**
+`JwtFilter`가 서명·만료·필수 claim, 로그아웃된 토큰(jti), 회원 존재 여부를 확인한 뒤 회원 ID만 `SecurityContext`에 넣습니다. 즐겨찾기 API는 요청 값이 아니라 토큰의 회원 ID로만 조회·삭제하므로 다른 회원의 데이터를 지정할 방법이 없습니다. 허용 목록에 없는 경로는 `denyAll`로 막았습니다. 이 규칙은 `FavoriteSecurityTest`(MockMvc)로 검증합니다.
+
+**3. 외부 ML 호출 동안 DB 연결을 붙잡지 않기**
+`PredictionFeatures`가 읽기 전용 트랜잭션 안에서 출주마와 과거 전적을 한 번에 모아 불변 입력으로 돌려주고, `PredictService`는 트랜잭션 밖에서 FastAPI를 호출합니다. 연결 2초·응답 3초 타임아웃, 응답 형식 검증, 장애 시 503 안내를 둡니다.
+
+**4. 혈통은 자기 참조 관계 + 방어적 재귀**
+`horse.sire_id`, `horse.dam_id`가 같은 테이블을 가리킵니다. 3대까지만 펼치고, 데이터가 잘못돼 순환이 생겨도 같은 말을 다시 펼치지 않으며, 조상이 없으면 `null`로 표시해 화면이 깨지지 않게 했습니다.
+
+**5. 예측 모델은 성능을 과장하지 않기**
+한국마사회 공개 자료로 학습한 실험 모델을 **배당(시장) 기준선과 같은 경주에서 비교**했습니다. 2025년 서울 세 검증 구간 ROC-AUC는 모델 0.714 / 0.742 / 0.736, 배당 기준선 0.791 / 0.822 / 0.767로 **모든 구간에서 시장보다 낮았습니다.** 그래서 화면에는 "실험 모델"과 면책 문구를 표시하고, 후보 모델은 학습 마감일과 미래 검증 기간을 미리 고정한 뒤에만 평가하도록 했습니다. → [docs/ML_DATA.md](docs/ML_DATA.md), [docs/ML_VALIDATION_PLAN.md](docs/ML_VALIDATION_PLAN.md)
+
+**6. 공공데이터 수집은 다시 시작할 수 있게**
+날짜×경마장 단위로 진행 상태를 저장해 중단 후 이어서 받고, 하루 호출 한도를 지키며, 형식이 맞지 않는 경주는 추정하지 않고 원본과 사유를 보존해 보류합니다. 사용자 PC 기준 최근 3개월 276개 작업 중 270개를 반영했고, 남은 6개는 제공기관 원본에 착순·거리가 비어 있는 경우입니다. → [docs/KRA_SYNC.md](docs/KRA_SYNC.md)
+
+## 테스트와 검증
+
+| 종류 | 위치 | 내용 |
+|---|---|---|
+| 백엔드 단위·슬라이스 | `backend/src/test` | 서비스 규칙(Mockito), JWT, `@WebMvcTest`로 인증·입력 검증·예외 응답 |
+| API 통합 | `tests/` | 실행 중인 Spring·MySQL·FastAPI에 실제 HTTP 요청 |
+| 부하 | `tests/scale.py` | 별도 DB(10,040두·1,008경주)에서 50명 30초: 14,017요청, 오류 0, p95 246ms |
+| ML | `ml/test_*.py` | 학습·평가·응답 계약, 검증 묶음 무결성 |
+| E2E | `frontend/e2e` | Chromium으로 검색·로그인·즐겨찾기·예측 흐름 |
+
+부하 수치는 로컬 1회 측정이며 운영 성능을 보장하지 않습니다. 실행 결과와 아직 확인하지 못한 항목은 [TEST_REPORT.md](TEST_REPORT.md)에 구분해 기록합니다.
 
 ## 실행
-필수: Linux, Docker 엔진과 Compose v2, Python 3.12 및 venv, Node 22 이상. Java/Gradle은 공식 빌드 컨테이너로도 사용할 수 있습니다.
+
+필요: Linux 또는 WSL2, Docker 엔진 + Compose v2, Python 3.12(또는 3.13), Node 22 이상.
 
 ```bash
 git clone https://github.com/hsubin756-pixel/horse_racing_portal.git
 cd horse_racing_portal
-./scripts/up.sh
+./scripts/up.sh          # .env 생성 → 빌드·테스트 → Compose 기동 → 준비 확인
 ```
 
-이미 체크아웃한 클라우드 환경에서는 `/workspace/horse_racing_portal`로 이동한 뒤 `./scripts/up.sh`를 실행합니다. 이 스크립트는 기존 `.env`를 보존하며, 없으면 개발용 비밀값을 무작위로 생성합니다. `.env`는 0600 권한이고 Git에서 제외됩니다. 이미지 빌드, MySQL/Flyway 샘플 적재, 서비스 시작 및 실제 API 준비 확인까지 실행합니다. 처음 빌드는 의존성 다운로드가 필요합니다. scripts/build.sh가 백엔드 JUnit/ML 테스트와 프론트 빌드를 실행한 뒤 Docker runtime 이미지를 조립합니다.
-
-웹 포트 5173, API 8080, ML 8000, DB 3306은 모두 호스트 loopback에만 바인딩됩니다. 이 클라우드 온보딩 UI에서는 로컬 웹 미리보기를 제공하지 않습니다. 브라우저 접근이 가능한 별도 개발 머신에서는 5173 포트로 접속하세요. 신규 회원은 회원가입 화면에서 직접 생성합니다. 기본 관리자/고정 비밀번호 계정은 없습니다.
+- 웹 `http://localhost:5173`, API `8080`, Swagger UI `http://localhost:8080/swagger-ui/index.html`
+- 포트는 모두 호스트 loopback에만 열립니다. 기본 관리자 계정은 없으며 회원가입 후 `python3 scripts/admin.py 이메일`로 지정합니다.
+- 기본 python3가 3.14 이상이면 `ML_PYTHON=$(~/.local/bin/uv python find 3.12) ./scripts/up.sh`처럼 지정합니다.
 
 ```bash
 docker compose ps
-docker compose logs --tail=80 backend
-docker compose stop           # 데이터 볼륨 보존
-docker compose up -d          # 이미 빌드된 서비스 재시작
-python3 scripts/wait-ready.py # MySQL 기반 조회·API·ML·웹 프록시 확인
+docker compose stop            # 데이터 보존
+docker compose up -d           # 재시작
+python3 scripts/wait-ready.py  # DB·API·ML·웹 준비 확인
 ```
 
-`docker compose down -v`는 DB 데이터를 삭제하므로 사용하지 마세요. 환경의 live 프로세스는 스냅샷에 보존된다고 가정하지 않습니다. 새 task에서는 기존 체크아웃을 사용하고 `docker compose up -d` 후 준비 확인을 실행하세요. 별도 Git worktree는 필요하지 않습니다.
+`docker compose down -v`는 DB 볼륨을 지우므로 사용하지 마세요.
 
-## 개발
-```bash
-python3 scripts/init-env.py
-python3 scripts/prepare-build.py
-mkdir -p .runtime/docker
-./scripts/build.sh
-DOCKER_CONFIG="$PWD/.runtime/docker" docker compose up -d db ml
-./scripts/gradle.sh build
-python3 scripts/backend-local.py
-cd frontend
-npm ci --cache ../.runtime/npm
-npm run dev
-```
-이미 전체 Compose가 실행 중이면 backend/frontend 컨테이너를 먼저 중지해 포트 충돌을 해소하세요. 로컬 백엔드는 `python3 scripts/backend-local.py stop`으로 종료합니다. Vite 프록시가 8080 API를 전달합니다. ML 모델은 컨테이너에서 학습되므로 호스트 Python 학습은 필수가 아닙니다.
+### 개발·검증 명령
 
 ```bash
-# 별도로 호스트에서 ML 개발/테스트 (Python 3.12 또는 3.13 필요: 고정된 numpy 2.2.6이 3.14용 휠을 제공하지 않음)
-python3.12 -m venv .runtime/ml-venv   # 없으면: curl -LsSf https://astral.sh/uv/install.sh | sh && ~/.local/bin/uv python install 3.12
-.runtime/ml-venv/bin/pip install --cache-dir .runtime/pip -r ml/requirements.lock
-.runtime/ml-venv/bin/python ml/train.py
-.runtime/ml-venv/bin/python -m unittest discover -s ml -p 'test_*.py' -v
+./scripts/gradle.sh build                     # 백엔드 컴파일 + JUnit
+python3 -m unittest discover -s tests -v      # API 통합 테스트(테스트 회원 생성 — 개발 DB에서만)
+cd frontend && npm run build && npm run test:e2e
 ```
 
-## 검증
-```bash
-./scripts/gradle.sh build
-python3 -m unittest discover -s tests -v
-python3 tests/scale.py # 별도 DB에서 10,040두/50명/30초 부하
-python3 scripts/backup.py # 원본을 유지하며 별도 스키마 복원 확인
-python3 scripts/kra_backup.py create # DB + KRA 원본/진행 기록 통합 백업
-cd frontend
-npm run build
-PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:e2e
-```
-API 테스트는 실행 중인 Spring/MySQL/FastAPI를 사용하며 테스트 회원을 생성합니다. 테스트 전용/개발 DB에서 실행하세요. Playwright는 시스템 Chromium을 사용하거나 `npx playwright install chromium` 후 실행할 수 있습니다. 전자는 클라우드 다운로드 정책 변경 없이 사용할 수 있습니다. ML 장애 검증은 `docker compose stop ml`, `python3 tests/check_outage.py`, `docker compose start ml`, 준비 확인 순서입니다.
+로컬 개발 서버, ML 단독 개발, 장애 시험 절차는 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)를 참고하세요.
 
-## 한국마사회 API 개발계정 승인 후
+### 한국마사회 실제 데이터
 
-2026-10-28: [제주 후보 선택·11월 최종 검증 묶음 준비](docs/ML_VALIDATION_PLAN.md)를 추가했습니다. 학습 자료/당시 코드/환경/계획을 보존하고, 최종 결과도 자동으로 서비스에 적용하지 않습니다.
-
-2026-10-28: [예측 입력 시점 점검·특성별 비교·미래 최종 검증](docs/ML_EXPERIMENTS.md)을 추가했습니다. 실제 사전 정보 공개 시각은 검증되지 않았으며 서비스 모델 자동 교체는 없습니다.
-
-2026-10-28: [경주불성립·보류 재조회·관리자 상태·PC 예약 갱신·기간별 모델 평가](docs/KRA_OPERATIONS.md)를 추가했습니다. 새 자료 반영과 자동 실행 설정은 해당 절차를 따르세요.
-
-수집한 자료와 DB를 함께 보관하는 방법은 [통합 백업 안내](docs/KRA_BACKUP.md)를 참고하세요.
-
-[인증키 설정·연결 확인 안내](docs/KRA_API.md)를 참고하세요. WSL에서 아래 명령을 실행하면 키를 숨김 입력으로 저장하고 문서 예제 경주의 원본 응답을 내려받습니다. Docker 재빌드와 추가 Python 패키지는 필요하지 않습니다.
+공공데이터포털 인증키를 받은 뒤 사용자 PC에서 실행합니다. 키와 원본은 Git에서 제외된 `.runtime/kra/`에만 저장합니다.
 
 ```bash
-python3 scripts/kra.py configure
+python3 scripts/kra.py configure                              # 키 숨김 입력
 python3 scripts/kra.py check --meet 1 --date 20220220 --race 1
 ```
 
-키와 다운로드 자료는 Git에서 제외된 `.runtime/kra/`에만 저장합니다. 실제 API 연결은 사용자 PC의 키와 네트워크로 확인해야 합니다. 서울·제주·부산경남 완료 경주는 `python3 scripts/kra_import.py .runtime/kra/results-폴더명`으로 검증한 뒤 같은 명령에 `--apply`를 붙여 사이트에 반영할 수 있습니다. 먼저 최신 소스로 `./scripts/up.sh`를 실행해 V9를 적용하세요. 실제 자료와 가상 샘플은 출처로 구분합니다. 자세한 순서는 위 안내에 있습니다.
+수집·반영·백업·예약 갱신: [KRA_API](docs/KRA_API.md) · [KRA_SYNC](docs/KRA_SYNC.md) · [KRA_OPERATIONS](docs/KRA_OPERATIONS.md) · [KRA_BACKUP](docs/KRA_BACKUP.md)
 
-## 화면 및 도메인
-- 부분 이름 검색, 20건 페이지, 성별/생년 정렬 → 상세 → 최신 완료 전적 → 경주 결과로 이동.
-- 경주명/개최일 AND 검색 → 마번·기수·인기·단승 배당·기록·착순, 말 상세로 이동. 인기순/배당순 정렬과 자료 기준 시각을 제공하며 미제공 값은 구분합니다. 저장된 단승 배당으로 조회 시 계산한 ‘배당 기준 인기’(공동 순위, 배당 없는 말은 비움)를 공식 인기와 별도 열로 표시합니다.
-- 회원가입/로그인 → 본인 즐겨찾기 추가·목록·삭제, 중복 거부.
-- JWT는 메모리에 보관하고 30분에 만료합니다. 새로고침 시 다시 로그인합니다. 서버 DB에서 로그아웃 토큰을 철회합니다.
-- 양쪽 부모의 3대 혈통 트리, 누락 표시 및 제한된 재귀.
-- 최대 4두 비교와 말·기수 조건별 성적: 거리/주로/기간 필터, 최근 5경주, 승률·3위 이내 비율.
-- 회원별 관심 경주 저장·삭제, 관심 말 출전을 합친 90일 일정과 사이트 내 안내.
-- 회원만 Spring을 통해 FastAPI 예측 요청. 합성 실험·면책 표시와 서비스 장애 안내.
+## 범위 밖
+
+실시간 배당 수집, 베팅, 예측 정확도·수익 보장, 공개 서버 배포(서버·도메인 미확보 — 배포 구성은 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)에 준비).
 
 ## 문서
-[설계](ARCHITECTURE.md) · [ERD](ERD.md) · [API](API.md) · [요구사항 추적](REQUIREMENTS_TRACEABILITY.md) · [결정](DECISIONS.md) · [검증 결과](TEST_REPORT.md) · [진행](PROGRESS.md) · [학습용 호출 흐름](docs/LEARNING.md) · [디렉터리](docs/STRUCTURE.md) · [운영 준비](docs/DEPLOYMENT.md) · [실제 데이터 평가](docs/ML_DATA.md) · [확장 기능·관리자 사용법](docs/RACE_FEATURES.md) · [넷케이바 기능 비교와 확인 제한](docs/NETKEIBA_COMPARISON.md) · [원본 SRS](docs/SRS.docx).
 
-OpenAPI는 실행 서버의 `/v3/api-docs`, Swagger UI는 `/swagger-ui/index.html`입니다. 프론트 프록시는 `/api`만 전달하므로 문서는 API 포트에서 확인합니다.
-
-아래는 초기 합성 모델 단계의 기록입니다. 현재 한국마사회 경주는 실제 자료 실험 모델, 가상 경주는 합성 모델을 사용하며 최신 상태는 [현재 현황](docs/CURRENT_STATUS.md)을 참고하세요. 실제 사전 예측·수익성은 검증되지 않았습니다. [모델 보고서](ml/model-report.json)의 합성 실험 수치를 실제 정확도로 인용하지 마세요. 별도로 한국마사회 공공데이터(API155, 2025년 서울 833경주)로 같은 구조의 모델을 오프라인 평가한 결과(홀드아웃 ROC-AUC 0.686, 상위 3두 recall 0.466)는 TEST_REPORT.md와 docs/ML_DATA.md에 기록했고 서비스에는 반영하지 않았습니다. 현재 검증 범위와 제한은 TEST_REPORT.md에 기록합니다.
-
-GitHub `main`에 소스가 게시되어 있습니다. [Actions 실행 목록](https://github.com/hsubin756-pixel/horse_racing_portal/actions)에서 원격 CI 결과를 확인할 수 있습니다. 이 환경에서는 GitHub API 접근 제한으로 원격 CI 성공 여부를 확인하지 못했습니다.
-
-2026-10-22 개선: JWT 필수 claims 검사, ML 응답/시간초과 처리, 검색 wildcard 문자 처리, DB 연결 사용 개선, 네트워크 오류 한국어 안내, 프록시 로그인 요청 제한을 추가했습니다. 확장 합성 DB의 동시 50명·30초 조회 시험은 14,017요청, 오류 0건, p95 246ms였습니다. 이는 장기 운영 성능 보장이 아닙니다. 백업의 별도 스키마 복원과 HTTPS 배포 구성을 준비했으며, 공개 배포에는 서버·도메인이 필요합니다.
-
-경주 상세와 말의 과거 전적에 표시하는 단승 배당은 원금을 포함한 배수(예: 2.4배)입니다. 현재 모든 값은 가상 샘플로 실제 배당·확정 환급금이 아닙니다. 인기 순위는 착순 또는 ML 예측 순위와 별도입니다. 예정 경주에는 미제공 상태 예시가 1건 있습니다. 기존 설치는 최신 소스를 받은 뒤 `./scripts/up.sh`로 재빌드하면 Flyway V4가 기존 DB를 확장하며 회원·즐겨찾기를 보존합니다.
-
-추가 화면은 `/compare`(경주마 비교), `/statistics`(말·기수 조건별 성적), `/watchlist`(회원 관심 일정)입니다. 말 상세의 비교/성적 링크와 경주 출주표의 기수 링크에서도 이동합니다. `git pull --ff-only` 후 기존 Python 3.12 환경에서 `./scripts/up.sh`를 실행하면 V5가 관심 경주 테이블을 추가합니다. 기존 데이터 볼륨을 삭제하지 않습니다. 일정은 사이트를 조회할 때 보여주며 이메일·푸시 발송은 포함하지 않습니다.
-
-
-## 출마표·구간 기록과 추가 기능
-경주 상세에 발주 시각·등급·날씨/주로·중량·취소 상태, 개별 말의 거리별 통과 순위와 누적/구간 시간, 조합별 예상 배당·확정 환급표를 표시합니다. 말 상세에서는 최근 10경주의 주행 스타일 분포·마지막 600m·착순 추이와 선택한 경주의 순위 흐름을 확인합니다. 스타일은 초반 위치 기반 규칙이며 실제 능력 예측이 아닙니다.
-
-상단 보조 메뉴에 개최 캘린더(`/calendar`), 기수·조교사(`/people`), 개인 메모(`/notes`), 알림함(`/notifications`), 자료 관리(`/admin`)를 추가했습니다. 관리자 입력/CSV 미리보기·저장·정정·변경 이력은 [사용 안내](docs/RACE_FEATURES.md)를 참고하세요.
-
-관리자는 기본으로 생성하지 않습니다. 먼저 가입한 뒤 저장소의 WSL 터미널에서 `python3 scripts/admin.py 실제가입이메일`로 지정하고 해당 계정으로 로그인합니다. 권한 회수는 같은 명령에 `--revoke`를 붙입니다. 이메일/비밀번호를 코드에 저장하지 않습니다.
-
-기존 설치는 `git pull --ff-only` → `source .runtime/build-python/bin/activate` → `./scripts/up.sh` 순으로 업데이트합니다. Flyway V6~V8이 기존 DB를 확장하며 데이터 볼륨을 삭제할 필요가 없습니다. 기본 구간 기록·배당은 가상 샘플이고 실제 데이터 자동 수집은 없습니다. 알림은 알림함 조회/갱신 시 사이트 안에 생성하며 이메일·푸시 발송은 하지 않습니다.
+[현재 현황](docs/CURRENT_STATUS.md) · [아키텍처](ARCHITECTURE.md) · [ERD](ERD.md) · [API](API.md) · [요구사항 추적](REQUIREMENTS_TRACEABILITY.md) · [설계 결정](DECISIONS.md) · [테스트 결과](TEST_REPORT.md) · [진행 기록](PROGRESS.md) · [학습용 호출 흐름](docs/LEARNING.md) · [디렉터리](docs/STRUCTURE.md) · [추가 기능 사용법](docs/RACE_FEATURES.md) · [netkeiba 기능 비교](docs/NETKEIBA_COMPARISON.md) · [README 이전 기록](docs/HISTORY.md) · [원본 SRS](docs/SRS.docx)

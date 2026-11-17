@@ -164,3 +164,10 @@ JUnit 20개·실제 API 24개·Chromium 10개 시나리오 통과, V1~V8 신규 
 ## ML 빌드 Python 버전 선택 (패치 0021) — 2026-11-16
 - 사용자 PC(WSL Ubuntu 26.04)의 기본 python3 3.14에서 numpy 2.2.6 wheel이 없어 소스 컴파일이 실패하던 문제를 수정했습니다. `build.sh`가 python3.12/3.13 또는 `ML_PYTHON`을 사용하고, 지원하지 않는 인터프리터로 만든 venv는 재생성하며, 호스트와 무관하게 `python:3.12-slim`용 cp312 manylinux wheel을 받습니다. uv로 3.12를 준비하는 방법을 README에 안내했습니다.
 - 사용자 PC에서 `ML_PYTHON=$(~/.local/bin/uv python find 3.12) ./scripts/up.sh` 전체 기동을 확인하고 GitHub main에 반영했습니다. 서비스 코드·DB·모델 변경은 없습니다. 세부는 TEST_REPORT.md.
+
+## 저장소 정리·패키지 분리·테스트 보강·README 재구성 (패치 0022~0025) — 2026-11-17
+- 0022 `.gitattributes`: 작업 트리 LF 고정, Windows 스크립트(.ps1/.bat/.cmd)만 CRLF, 이미지·docx 등 바이너리 지정. Windows `core.autocrlf=true` 체크아웃에서 WSL git이 전 파일을 수정됨으로 보던 문제와 컨테이너 셸 스크립트 CRLF 위험을 막습니다. 저장소 내용 변경 없음(전 파일이 이미 LF).
+- 0023 백엔드 기능별 패키지 분리: `dev.keiba` 40개 클래스를 common·security·member·catalog·analytics·favorite·note·prediction·admin으로 이동. 패키지 간 접근은 public 서비스·DTO와 엔티티 읽기 전용 getter로만 합니다. 동작·API·DB 변경 없음. 구조는 docs/STRUCTURE.md, 결정은 DECISIONS.md.
+- 0024 백엔드 테스트 25→55개(@Test 기준): AuthService·FavoriteService·CatalogService 단위, `@WebMvcTest` 인증/입력 검증 슬라이스(FavoriteSecurityTest·AuthControllerTest). 테스트용 `CatalogFixtures` 추가.
+- 0025 README를 포트폴리오용으로 재구성(기능 표·패키지 구조·설계 고민·ML 결과의 정직한 기재). 기존 날짜별 메모는 docs/HISTORY.md, 상세 개발 절차는 docs/DEVELOPMENT.md로 내용 그대로 이동.
+- 클라우드 세션은 Maven Central이 차단돼 Gradle 컴파일·JUnit을 실행하지 못했습니다. 대신 의존성 없이 javac로 이동 전/후 소스를 각각 컴파일해 오류 목록을 비교했고, 패키지 이동으로 새로 생긴 접근 제한·누락 import 오류는 0건입니다(외부 라이브러리 미해결 오류는 양쪽 동일). **Gradle 빌드와 새 테스트 통과 여부는 사용자 PC 확인 전입니다.**
