@@ -316,3 +316,9 @@ JWT 만료 필드가 없는 서명 토큰의 허용 가능성을 차단했습니
 ## 패치 0022~0025 — 클라우드 정적 검사만 수행 (2026-11-17)
 - 실행함: `git am` 순서 적용, `git add --renormalize`로 줄바꿈 변경 대상 0건 확인, JDK 21 `javac -proc:none`(클래스패스 없음)으로 변경 전·후 전체 소스의 오류 목록 비교 — 패키지 이동·가시성 관련 신규 오류 0건.
 - 실행하지 못함: `./scripts/gradle.sh build`(Maven Central 차단), 신규 JUnit 30개, Spring 컨텍스트 기동, `@WebMvcTest` 슬라이스, API 통합·Chromium 시나리오. 사용자 PC에서 실행해 아래에 결과를 추가해야 합니다.
+
+## 패치 0022~0025 — 사용자 PC 직접 확인 (2026-11-17)
+- 환경: WSL2 Ubuntu, 패치 적용 후 GitHub main `ed8137b`(사용자 직접 push, 클라우드에서 origin/main 내용 일치 확인).
+- `./scripts/gradle.sh build`: `BUILD SUCCESSFUL`. JUnit XML 집계 **14개 클래스·55개 테스트, 실패 0·오류 0·건너뜀 0** — 신규 5개 클래스(AuthServiceTest·AuthControllerTest·FavoriteServiceTest·FavoriteSecurityTest·CatalogServiceTest)와 분리한 CatalogAdminCsvTest 포함. 패키지 분리 후 Spring 컨텍스트 슬라이스(`@WebMvcTest`)가 실제로 기동됐습니다.
+- `python3 -m unittest discover -s tests -v`: `OK (skipped=1)`. 건너뛴 1개는 기존 `test_ml.test_real_race_uses_real_data_model_when_available`의 "실제 경주가 DB에 없음" 조건으로 추정합니다(경주 목록 최신 200건 안에서만 한국마사회 OFFICIAL 경주를 찾음). 이번 패치와 무관하며 어떤 테스트였는지는 출력으로 확인하지 않았습니다.
+- 서비스 재기동 후 화면 수동 점검과 Chromium E2E는 이번에 실행하지 않았습니다.

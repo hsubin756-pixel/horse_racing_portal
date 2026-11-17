@@ -170,4 +170,4 @@ JUnit 20개·실제 API 24개·Chromium 10개 시나리오 통과, V1~V8 신규 
 - 0023 백엔드 기능별 패키지 분리: `dev.keiba` 40개 클래스를 common·security·member·catalog·analytics·favorite·note·prediction·admin으로 이동. 패키지 간 접근은 public 서비스·DTO와 엔티티 읽기 전용 getter로만 합니다. 동작·API·DB 변경 없음. 구조는 docs/STRUCTURE.md, 결정은 DECISIONS.md.
 - 0024 백엔드 테스트 25→55개(@Test 기준): AuthService·FavoriteService·CatalogService 단위, `@WebMvcTest` 인증/입력 검증 슬라이스(FavoriteSecurityTest·AuthControllerTest). 테스트용 `CatalogFixtures` 추가.
 - 0025 README를 포트폴리오용으로 재구성(기능 표·패키지 구조·설계 고민·ML 결과의 정직한 기재). 기존 날짜별 메모는 docs/HISTORY.md, 상세 개발 절차는 docs/DEVELOPMENT.md로 내용 그대로 이동.
-- 클라우드 세션은 Maven Central이 차단돼 Gradle 컴파일·JUnit을 실행하지 못했습니다. 대신 의존성 없이 javac로 이동 전/후 소스를 각각 컴파일해 오류 목록을 비교했고, 패키지 이동으로 새로 생긴 접근 제한·누락 import 오류는 0건입니다(외부 라이브러리 미해결 오류는 양쪽 동일). **Gradle 빌드와 새 테스트 통과 여부는 사용자 PC 확인 전입니다.**
+- 클라우드 세션은 Maven Central이 차단돼 Gradle 컴파일·JUnit을 실행하지 못했습니다. 대신 의존성 없이 javac로 이동 전/후 소스를 각각 컴파일해 오류 목록을 비교했고, 패키지 이동으로 새로 생긴 접근 제한·누락 import 오류는 0건입니다(외부 라이브러리 미해결 오류는 양쪽 동일). 사용자 PC에서 Gradle `BUILD SUCCESSFUL`, JUnit 14개 클래스·55개 전부 통과, API 통합 테스트 OK(skipped=1, 기존 조건부 테스트)를 확인했습니다. 상세는 TEST_REPORT.md.
