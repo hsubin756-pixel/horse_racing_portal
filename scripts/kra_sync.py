@@ -86,6 +86,19 @@ def summary(state):
             f"API 누적 {state.get('calls',0)}회")
 
 
+def progress_line(index, total, meet, day, task, run_calls, total_calls):
+    """One line per finished date x track so a long run visibly advances (no keys or paths)."""
+    races = task.get('races', {})
+    site = task.get('site', '대기')
+    if races:
+        done = sum(v.get('status') == '반영 완료' for v in races.values())
+        held = sum(bool(v.get('error')) for v in races.values())
+        site += f'({done}경주 반영' + (f', 보류 {held}' if held else '') + ')'
+    width = len(str(total))
+    return (f'[{index:>{width}}/{total}] {day:%Y-%m-%d} {kra.MEETS[meet]} · 사이트 {site} · '
+            f"학습 {task.get('training', '대기')} · 호출 이번 {run_calls}회/누적 {total_calls}회")
+
+
 def print_issues(state):
     found = False
     for ident, task in state['tasks'].items():
@@ -248,8 +261,9 @@ def run(args):
     key = kra.load_key() if args.max_calls else ''
     budget = Budget(args.max_calls)
     previous_calls = state['calls']
+    planned = list(jobs(args.start,args.end,args.meets))
     try:
-        for ident,meet,day in jobs(args.start,args.end,args.meets):
+        for index,(ident,meet,day) in enumerate(planned, 1):
             task = state['tasks'][ident]
             for kind, action in [('site',site_day),('training',training_day)]:
                 try:
@@ -263,6 +277,7 @@ def run(args):
                     state['lastRunCalls'] = budget.calls
                     state['calls'] = previous_calls + budget.calls
                     save(path,state)
+            print(progress_line(index,len(planned),meet,day,task,budget.calls,state['calls']),flush=True)
     except BudgetReached:
         print('보관 자료가 없어 중단했습니다. --max-calls 0은 API를 호출하지 않습니다.' if not args.max_calls else
               '이번 실행의 API 호출 한도에 도달했습니다. 같은 명령으로 이어서 받으세요.')

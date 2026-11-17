@@ -56,6 +56,21 @@ class SyncTests(unittest.TestCase):
                 self.assertEqual(state['exports']['1']['status'],'CSV 준비')
                 self.assertNotIn(KEY,sync.job_path(args.start,args.end,args.meets).with_suffix('.html').read_text())
 
+    def test_run_prints_one_progress_line_per_task(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);folder=root/'archive';folder.mkdir();archive(folder)
+            args=SimpleNamespace(start=date(2010,1,1),end=date(2010,1,1),meets=['1'],max_calls=2,apply=True,retry_failed=False,status=False,dry_run=False,evaluate=False)
+            def download(*a,**kw): kw['before_request']();return {'directory':str(folder)}
+            def fetch(*a,**kw): kw['before_request']();return [starter(1,g,str(100+g),str(g)) for g in range(1,5)]
+            output=io.StringIO()
+            with patch.object(sync,'STATE',root/'sync'),patch.object(sync.ds,'ML_DIR',root/'ml'),patch.object(kra,'load_key',return_value=KEY),patch.object(kra,'download',side_effect=download),patch.object(sync.ds,'fetch_day',side_effect=fetch),patch.object(sync.imp,'apply',return_value=[(123,1)]),contextlib.redirect_stdout(output):
+                sync.run(args)
+            lines=[l for l in output.getvalue().splitlines() if l.startswith('[')]
+            self.assertEqual(lines,['[1/1] 2010-01-01 서울 · 사이트 반영 완료(1경주 반영) · 학습 수집 완료 · 호출 이번 2회/누적 2회'])
+            self.assertNotIn(KEY,output.getvalue())
+        line=sync.progress_line(1,321,'2',date(2026,8,15),{'site':'보류 있음','training':'수집 완료','races':{'1':{'status':'반영 완료'},'2':{'error':'x'}}},3,71)
+        self.assertEqual(line,'[  1/321] 2026-08-15 제주 · 사이트 보류 있음(1경주 반영, 보류 1) · 학습 수집 완료 · 호출 이번 3회/누적 71회')
+
     def test_dry_run_needs_no_key_and_writes_nothing(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(sync,'STATE',Path(tmp)/'state'), patch.object(kra,'load_key') as key, contextlib.redirect_stdout(io.StringIO()):
             args=SimpleNamespace(start=date(2025,1,1),end=date(2025,1,3),meets=['1','2','3'],status=False,dry_run=True)

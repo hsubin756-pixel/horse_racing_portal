@@ -151,3 +151,13 @@ python3 scripts/kra_sync.py --from 20260801 --to 20261115 --status
 python3 scripts/kra_sync.py --from 20260501 --to 20260731 --meets 2 --max-calls 0 --apply --retry-failed
 python3 scripts/kra_sync.py --from 20260501 --to 20260731 --meets 2 --status
 ```
+
+### 실행 중 진행 표시 — 2026-11-17
+
+`kra_sync.py`와 `kra_daily.py`는 날짜×경마장 작업 하나를 마칠 때마다 한 줄씩 출력합니다. 인증키·경로는 출력하지 않습니다.
+
+```text
+[ 34/321] 2026-08-15 제주 · 사이트 반영 완료(9경주 반영) · 학습 수집 완료 · 호출 이번 71회/누적 71회
+```
+
+이미 끝난 작업은 호출 없이 바로 지나가므로 재실행할 때는 줄이 빠르게 올라갑니다.
