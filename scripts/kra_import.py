@@ -18,6 +18,10 @@ SOURCE = 'KRA_API214_1'
 # Code + remark pairs observed in the user's archived API214_1 responses.
 NON_FINISHERS = {'92': ('주행중지', 'DNF'), '94': ('경주제외', 'SCRATCHED'),
                 '95': ('출전취소', 'SCRATCHED')}
+# 91/실격 (2026-11-06 부산경남 4R): the horse ran, so the provider may send its
+# running time, but it has no official placing. Keep the start (and its odds),
+# store no finish/time/sectionals; the original time stays in the raw archive.
+DISQUALIFIED = ('91', '실격')
 
 
 def result_state(row, field):
@@ -30,6 +34,10 @@ def result_state(row, field):
         if row.get('rcTime', '').strip() not in ('', '0', '0.0', '0.00'):
             raise KraError('ord: 비완주 코드에 결승 시간이 제공됐습니다. 의미 확인이 필요합니다.')
         return status, None, None, remark
+    if code == DISQUALIFIED[0]:
+        if remark != DISQUALIFIED[1]:
+            raise KraError('ord: 실격 코드와 순위 비고가 일치하지 않습니다.')
+        return 'DISQUALIFIED', None, None, remark
     if code == '0':
         raise KraError('ord: 착순 미제공(0) 자료입니다. 완료 결과로 반영하지 않습니다.')
     if code == '98' and remark == '경주불성립':

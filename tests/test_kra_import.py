@@ -149,6 +149,24 @@ class KraImportTests(unittest.TestCase):
         self.assertEqual(json.loads(race['raw']), rows)
         self.assertIn('finish_position<=>NULL', importer.sql_plan([race], refresh_sectionals=True))
 
+    def test_disqualified_runner_keeps_start_and_odds_without_placing(self):
+        # 2026-11-06 부산경남 4R: ord=91/실격 with a running time; remaining horses are ranked 1..N.
+        rows = sample_rows() + [dict(sample_rows()[0], chulNo='3', hrNo='990003', hrName='가상 실격말',
+                                     ord='91', ordBigo='실격', rcTime='75', winOdds='8.2')]
+        race = importer.prepare(rows, RETRIEVED)[0]
+        dq = race['entries'][2]
+        self.assertEqual(race['status'], 'OFFICIAL')
+        self.assertEqual((dq['status'], dq['status_note']), ('DISQUALIFIED', '실격'))
+        self.assertIsNone(dq['finish']); self.assertIsNone(dq['time'])
+        self.assertEqual((dq['points'], dq['corners']), ({}, []))
+        self.assertEqual(dq['odds'], Decimal('8.2'))
+        self.assertEqual([e['finish'] for e in race['entries'][:2]], [1, 2])
+        self.assertIn('"rcTime":"75"', race['raw'])
+        for changes in [dict(ordBigo='-'), dict(ordBigo='주행중지')]:
+            bad = [dict(r) for r in rows]; bad[2].update(changes)
+            with self.subTest(changes=changes), self.assertRaises(kra.KraError):
+                importer.prepare(bad, RETRIEVED)
+
     def test_all_void_results_preserve_roster_and_drop_results_odds_and_sectionals(self):
         rows=sample_rows()
         for row in rows:row.update(ord='98',ordBigo='경주불성립',rcTime='0')
