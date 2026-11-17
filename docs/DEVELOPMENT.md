@@ -55,3 +55,14 @@ PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:e2e
 ```
 API 테스트는 실행 중인 Spring/MySQL/FastAPI를 사용하며 테스트 회원을 생성합니다. 테스트 전용/개발 DB에서 실행하세요. Playwright는 시스템 Chromium을 사용하거나 `npx playwright install chromium` 후 실행할 수 있습니다. 전자는 클라우드 다운로드 정책 변경 없이 사용할 수 있습니다. ML 장애 검증은 `docker compose stop ml`, `python3 tests/check_outage.py`, `docker compose start ml`, 준비 확인 순서입니다.
 
+
+## 백엔드 코드 형식
+
+Java 소스는 [prettier-plugin-java](https://github.com/jhipster/prettier-java)로 맞춥니다(설정: `backend/.prettierrc.json`, 줄 너비 120, 들여쓰기 4칸). 형식만 바꾸며 동작은 바뀌지 않습니다.
+
+```bash
+cd backend
+npx --yes -p prettier@3 -p prettier-plugin-java prettier --write "src/**/*.java"
+```
+
+규칙: 의존성 필드는 `private final` + 생성자 주입, `if`/`for` 본문은 항상 중괄호. JPA 엔티티 필드는 같은 패키지의 서비스와 테스트 픽스처가 쓰도록 package-private으로 두고, 다른 패키지에는 getter만 공개합니다.

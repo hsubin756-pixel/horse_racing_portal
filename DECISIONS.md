@@ -9,3 +9,4 @@
 - 커뮤니티, 실시간 오즈, 예측 정확도 보장은 Won't로 제외합니다.
 - Docker BuildKit 내부 네트워크에서 의존성 접근이 실패하여, scripts/build.sh가 정상 접근이 검증된 호스트/일반 Gradle 컨테이너에서 빌드·테스트·의존성 다운로드를 수행합니다. Dockerfile은 결과물을 runtime 이미지로 조립합니다. ML wheel은 신뢰되는 TLS 다운로드 후 SHA-256을 고정하고 이미지에서 --require-hashes/--no-index로 설치합니다. TLS 검증을 우회하지 않습니다. scripts/up.sh가 전체 흐름을 자동 실행합니다.
 - 백엔드는 계층(controller/service/repository)별이 아니라 기능별 패키지(common·security·member·catalog·analytics·favorite·note·prediction·admin)로 나눕니다. 한 기능을 고칠 때 관련 파일이 한 폴더에 있고, 패키지 사이에 공개할 API(public 클래스·메서드)만 드러나도록 하기 위해서입니다. 엔티티 필드는 패키지 내부 전용으로 두고 다른 패키지에는 읽기 전용 getter만 공개합니다(setter 없음).
+- Java 코드 형식은 prettier-plugin-java로 통일합니다(포매터를 Gradle 플러그인으로 넣으면 빌드에 외부 의존성이 늘어 npx로 실행). 형식 변경 커밋은 토큰 비교로 괄호·중괄호 추가와 import 정렬 외 변화가 없음을 확인합니다.

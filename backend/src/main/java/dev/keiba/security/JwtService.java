@@ -1,29 +1,77 @@
 package dev.keiba.security;
+
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
-import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.*;
+import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
 @Service
 public class JwtService {
- final SecretKey key; final long ttl;
- public JwtService(@Value("${app.jwt-secret}") String secret,@Value("${app.jwt-ttl-seconds}") long ttl) {
-  if(secret.getBytes(StandardCharsets.UTF_8).length<32 || ttl<1 || ttl>86400) throw new IllegalArgumentException("JWT key must be at least 32 bytes; TTL 1..86400 seconds");
-  key=Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));this.ttl=ttl;
- }
- public long ttlSeconds() { return ttl; }
- public String create(Long id) { var now=Instant.now(); return Jwts.builder().issuer("keiba-field").subject(id.toString()).id(UUID.randomUUID().toString()).issuedAt(Date.from(now)).expiration(Date.from(now.plusSeconds(ttl))).signWith(key).compact(); }
- public Claims parse(String token) {
-  Claims claims=Jwts.parser().verifyWith(key).requireIssuer("keiba-field").build().parseSignedClaims(token).getPayload();
-  try {
-   if(claims.getExpiration()==null || claims.getIssuedAt()==null || claims.getId()==null || claims.getSubject()==null) throw new IllegalArgumentException();
-   if(Long.parseLong(claims.getSubject())<=0 || !UUID.fromString(claims.getId()).toString().equals(claims.getId())) throw new IllegalArgumentException();
-   long lifetime=claims.getExpiration().getTime()-claims.getIssuedAt().getTime();
-   if(lifetime<=0 || lifetime>86400000 || claims.getIssuedAt().toInstant().isAfter(Instant.now().plusSeconds(30))) throw new IllegalArgumentException();
-  } catch(IllegalArgumentException ex) { throw new MalformedJwtException("Required token claims are invalid",ex); }
-  return claims;
- }
+
+    private final SecretKey key;
+    private final long ttl;
+
+    public JwtService(@Value("${app.jwt-secret}") String secret, @Value("${app.jwt-ttl-seconds}") long ttl) {
+        if (secret.getBytes(StandardCharsets.UTF_8).length < 32 || ttl < 1 || ttl > 86400) {
+            throw new IllegalArgumentException("JWT key must be at least 32 bytes; TTL 1..86400 seconds");
+        }
+        key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.ttl = ttl;
+    }
+
+    public long ttlSeconds() {
+        return ttl;
+    }
+
+    public String create(Long id) {
+        var now = Instant.now();
+        return Jwts.builder()
+            .issuer("keiba-field")
+            .subject(id.toString())
+            .id(UUID.randomUUID().toString())
+            .issuedAt(Date.from(now))
+            .expiration(Date.from(now.plusSeconds(ttl)))
+            .signWith(key)
+            .compact();
+    }
+
+    public Claims parse(String token) {
+        Claims claims = Jwts.parser()
+            .verifyWith(key)
+            .requireIssuer("keiba-field")
+            .build()
+            .parseSignedClaims(token)
+            .getPayload();
+        try {
+            if (
+                claims.getExpiration() == null ||
+                claims.getIssuedAt() == null ||
+                claims.getId() == null ||
+                claims.getSubject() == null
+            ) {
+                throw new IllegalArgumentException();
+            }
+            if (
+                Long.parseLong(claims.getSubject()) <= 0 ||
+                !UUID.fromString(claims.getId()).toString().equals(claims.getId())
+            ) {
+                throw new IllegalArgumentException();
+            }
+            long lifetime = claims.getExpiration().getTime() - claims.getIssuedAt().getTime();
+            if (
+                lifetime <= 0 ||
+                lifetime > 86400000 ||
+                claims.getIssuedAt().toInstant().isAfter(Instant.now().plusSeconds(30))
+            ) {
+                throw new IllegalArgumentException();
+            }
+        } catch (IllegalArgumentException ex) {
+            throw new MalformedJwtException("Required token claims are invalid", ex);
+        }
+        return claims;
+    }
 }
