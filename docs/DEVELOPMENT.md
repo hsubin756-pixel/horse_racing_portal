@@ -45,7 +45,7 @@ python3.12 -m venv .runtime/ml-venv   # 없으면: curl -LsSf https://astral.sh/
 ## 전체 검증
 ```bash
 ./scripts/gradle.sh build
-python3 -m unittest discover -s tests -v
+python3 tests/run_isolated.py   # 개발 DB와 분리된 임시 스키마에서 API 통합 테스트
 python3 tests/scale.py # 별도 DB에서 10,040두/50명/30초 부하
 python3 scripts/backup.py # 원본을 유지하며 별도 스키마 복원 확인
 python3 scripts/kra_backup.py create # DB + KRA 원본/진행 기록 통합 백업
@@ -66,3 +66,14 @@ npx --yes -p prettier@3 -p prettier-plugin-java prettier --write "src/**/*.java"
 ```
 
 규칙: 의존성 필드는 `private final` + 생성자 주입, `if`/`for` 본문은 항상 중괄호. JPA 엔티티 필드는 같은 패키지의 서비스와 테스트 픽스처가 쓰도록 package-private으로 두고, 다른 패키지에는 getter만 공개합니다.
+
+## API 통합 테스트 격리 실행
+
+`tests/`의 API 테스트는 새로 설치한 가상 샘플(말 40두, 경주 1~8)을 기준으로 작성돼 있습니다. 개발 DB에 한국마사회 실제 자료를 반영한 뒤에는 그 DB에서 직접 돌리면 일부 검사가 실패합니다. `python3 tests/run_isolated.py`는 다음 순서로 실행합니다.
+
+1. 임의 이름의 스키마 `it_…`를 만들고 임시 백엔드 컨테이너(`keiba-backend` 이미지)를 띄워 Flyway가 V1부터 마이그레이션·가상 샘플 적재
+2. `TEST_BASE_URL`(임시 백엔드 주소)과 `KEIBA_DB`(임시 스키마)를 지정해 테스트 실행. 테스트·KRA 임시 픽스처의 DB 조작도 모두 이 스키마로 향합니다(`scripts/backup.py`의 `mysql()`이 `keiba`를 `KEIBA_DB`로 치환)
+3. 성공·실패·Ctrl+C와 관계없이 컨테이너와 스키마 삭제
+
+실행 전 Compose 스택(`db`, `ml`)이 떠 있고 `./scripts/up.sh`로 백엔드 이미지가 빌드돼 있어야 합니다. 일부 모듈만: `python3 tests/run_isolated.py test_ml test_auth`. ML 서비스는 공유하며(상태 없음), KRA 진행표 디렉터리는 읽기 전용으로 연결합니다. CI는 매번 새 DB를 쓰므로 기존 `unittest discover`를 그대로 사용합니다.
+

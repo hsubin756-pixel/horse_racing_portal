@@ -2,7 +2,7 @@
 """Create a private logical backup and verify it in a disposable schema.
 Never replaces keiba or stops services. Keep the database quiet for the checksum comparison.
 """
-import argparse, gzip, json, os, subprocess, uuid
+import argparse, gzip, json, os, re, subprocess, uuid
 from datetime import datetime, timezone
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
@@ -10,6 +10,9 @@ os.chdir(ROOT)
 os.environ.setdefault('DOCKER_CONFIG',str(ROOT/'.runtime/docker'))
 PREFIX=['docker','compose','exec','-T','db','sh','-c']
 def mysql(sql, database=None):
+ # tests/run_isolated.py points every 'keiba' access of the API tests at a throwaway schema.
+ if database=='keiba': database=os.environ.get('KEIBA_DB','keiba')
+ if database is not None and not re.fullmatch(r'[A-Za-z0-9_]{1,64}',database): raise ValueError('database name')
  command='MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot --default-character-set=utf8mb4 --batch --skip-column-names'
  if database: command+=' '+database
  return subprocess.run(PREFIX+[command],input=sql.encode(),stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=True).stdout.decode()

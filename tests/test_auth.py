@@ -1,5 +1,5 @@
 import unittest,uuid,json,subprocess,base64
-from test_catalog import request
+from test_catalog import request, DB
 class AuthTests(unittest.TestCase):
  def register(self,label):
   self.password='Safe-test-'+uuid.uuid4().hex
@@ -37,5 +37,5 @@ class AuthTests(unittest.TestCase):
   self.register('hash')
   # Count violations without printing hashes, passwords, or environment values.
   r=subprocess.run(['docker','compose','exec','-T','db','sh','-c',
-   '''MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N keiba -e "SELECT COUNT(*) FROM member WHERE password_hash NOT LIKE '\\$2a\\$12\\$%';"'''],capture_output=True,text=True,check=True)
+   '''MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N '''+DB+''' -e "SELECT COUNT(*) FROM member WHERE password_hash NOT LIKE '\\$2a\\$12\\$%';"'''],capture_output=True,text=True,check=True)
   self.assertEqual(r.stdout.strip(),'0')

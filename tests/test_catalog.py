@@ -1,8 +1,11 @@
 """Black-box tests against running Spring + real MySQL, no mock API."""
-import json, os, unittest
+import json, os, re, unittest
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 BASE=os.environ.get('TEST_BASE_URL','http://127.0.0.1:8080/api')
+# tests/run_isolated.py sets these to a throwaway schema and backend; defaults are the dev stack.
+DB=os.environ.get('KEIBA_DB','keiba')
+assert re.fullmatch(r'[A-Za-z0-9_]{1,64}',DB)
 def request(path, method='GET', body=None, token=None):
  headers={'Content-Type':'application/json'}
  if token: headers['Authorization']='Bearer '+token

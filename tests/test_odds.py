@@ -1,7 +1,7 @@
 """Real MySQL/API contract checks for synthetic win-odds snapshots."""
 import subprocess,unittest
 from datetime import datetime,timezone
-from test_catalog import request
+from test_catalog import request, DB
 class OddsTests(unittest.TestCase):
  def test_popularity_odds_and_provenance(self):
   status,race=request('/races/1');self.assertEqual(status,200)
@@ -48,14 +48,14 @@ class OddsTests(unittest.TestCase):
    ("win_odds=NULL,popularity_rank=NULL",'ck_odds_snapshot'),("odds_as_of=NULL",'ck_odds_snapshot'),("odds_source=' '",'ck_odds_snapshot')):
    # Each connection rolls back on disconnect; committed fixture data is never changed.
    result=subprocess.run(['docker','compose','exec','-T','db','sh','-c',
-    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot keiba'],
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot '+DB],
     input='START TRANSACTION; UPDATE entry SET '+assignment+' WHERE race_id=1 AND number=1; ROLLBACK;',
     capture_output=True,text=True)
    self.assertNotEqual(result.returncode,0);self.assertIn(constraint,result.stderr)
   # Popularity and win odds are independently optional, but provenance is still mandatory.
   for assignment in ('win_odds=NULL', 'popularity_rank=NULL'):
    result=subprocess.run(['docker','compose','exec','-T','db','sh','-c',
-    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot keiba'],
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot '+DB],
     input='START TRANSACTION; UPDATE entry SET '+assignment+' WHERE race_id=1 AND number=1; ROLLBACK;',
     capture_output=True,text=True)
    self.assertEqual(result.returncode,0)

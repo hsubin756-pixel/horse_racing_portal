@@ -123,7 +123,7 @@ python3 scripts/wait-ready.py  # DB·API·ML·웹 준비 확인
 
 ```bash
 ./scripts/gradle.sh build                     # 백엔드 컴파일 + JUnit
-python3 -m unittest discover -s tests -v      # API 통합 테스트(테스트 회원 생성 — 개발 DB에서만)
+python3 tests/run_isolated.py                # API 통합 테스트: 임시 스키마·임시 백엔드에서 실행 후 삭제
 cd frontend && npm run build && npm run test:e2e
 ```
 
