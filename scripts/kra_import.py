@@ -22,6 +22,10 @@ NON_FINISHERS = {'92': ('주행중지', 'DNF'), '94': ('경주제외', 'SCRATCHE
 # running time, but it has no official placing. Keep the start (and its odds),
 # store no finish/time/sectionals; the original time stays in the raw archive.
 DISQUALIFIED = ('91', '실격')
+# Jeju 2026-07-07: horses from outside the track carry this exact placeholder
+# instead of a trainer ID. It is a category, not a person: store no trainer
+# link and keep the provider's label as the display text.
+OUTSIDE_TRAINER = ('0BBBBB', '외부마')
 
 
 def result_state(row, field):
@@ -237,8 +241,11 @@ def prepare(rows, retrieved):
             body, change = parse_body_weight(text(r, 'wgHr', 30, True))
             # A missing trainer ID does not invalidate the race result. Preserve
             # any supplied name, but never guess a person link from that name.
-            trainer = identifier(r, 'trNo') if text(r, 'trNo', 16, True) else None
-            trainer_name = text(r, 'trName', optional=trainer is None) or None
+            if (r.get('trNo', '').strip(), r.get('trName', '').strip()) == OUTSIDE_TRAINER:
+                trainer, trainer_name = None, OUTSIDE_TRAINER[1]
+            else:
+                trainer = identifier(r, 'trNo') if text(r, 'trNo', 16, True) else None
+                trainer_name = text(r, 'trName', optional=trainer is None) or None
             # Do not infer a finish or partial sectionals for non-finishers. Raw fields remain archived.
             points, corners = sectionals(r, meet, distance, field, finish, finish_time) if status == 'FINISHED' else ({}, [])
             race['entries'].append({'horse': horse, 'name': text(r, 'hrName'), 'sex': sex,

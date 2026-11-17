@@ -167,6 +167,18 @@ class KraImportTests(unittest.TestCase):
             with self.subTest(changes=changes), self.assertRaises(kra.KraError):
                 importer.prepare(bad, RETRIEVED)
 
+    def test_outside_horse_placeholder_has_no_trainer_link(self):
+        # 제주 2026-07-07: trNo='0BBBBB' + trName='외부마'는 사람이 아니라 외부 마필 표시입니다.
+        rows = sample_rows(meet='제주'); rows[1].update(trNo='0BBBBB', trName='외부마')
+        race = importer.prepare(rows, RETRIEVED)[0]
+        self.assertEqual((race['entries'][1]['trainer'], race['entries'][1]['trainer_name']), (None, '외부마'))
+        self.assertEqual(race['entries'][0]['trainer'], '990004')
+        self.assertIn('"trNo":"0BBBBB"', race['raw'])
+        for changes in [dict(trNo='0BBBBB', trName='홍길동'), dict(trNo='0CCCCC', trName='외부마')]:
+            bad = sample_rows(meet='제주'); bad[1].update(changes)
+            with self.subTest(changes=changes), self.assertRaises(kra.KraError):
+                importer.prepare(bad, RETRIEVED)
+
     def test_all_void_results_preserve_roster_and_drop_results_odds_and_sectionals(self):
         rows=sample_rows()
         for row in rows:row.update(ord='98',ordBigo='경주불성립',rcTime='0')

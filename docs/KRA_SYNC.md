@@ -142,3 +142,12 @@ explorer.exe "$(wslpath -w .runtime/kra/sync)"
 python3 scripts/kra_sync.py --from 20260801 --to 20261115 --max-calls 0 --apply --retry-failed
 python3 scripts/kra_sync.py --from 20260801 --to 20261115 --status
 ```
+
+### 외부마 조교사 표시 지원 — 2026-11-17
+
+제주 2026-07-07 1~4R에서 일부 말의 조교사가 `trNo='0BBBBB'`, `trName='외부마'`로 제공됐습니다. 원문 확인 결과 같은 날 다른 말은 정상 번호(예: `002029`)였고, 이 값은 사람이 아니라 외부 마필을 뜻하는 자리표시로 판단했습니다. 정확히 이 두 값의 조합일 때만 조교사 연결 없이 표시 이름 "외부마"로 반영합니다. 번호나 이름 중 하나만 다르면 계속 보류합니다.
+
+```bash
+python3 scripts/kra_sync.py --from 20260501 --to 20260731 --meets 2 --max-calls 0 --apply --retry-failed
+python3 scripts/kra_sync.py --from 20260501 --to 20260731 --meets 2 --status
+```
