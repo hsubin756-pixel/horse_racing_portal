@@ -7,7 +7,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.http.HttpMethod;
 @Configuration
-class SecurityConfig {
+public class SecurityConfig {
  @Bean org.springframework.boot.web.servlet.FilterRegistrationBean<JwtFilter> jwtRegistration(JwtFilter filter) {
   var registration=new org.springframework.boot.web.servlet.FilterRegistrationBean<>(filter);
   registration.setEnabled(false);return registration;

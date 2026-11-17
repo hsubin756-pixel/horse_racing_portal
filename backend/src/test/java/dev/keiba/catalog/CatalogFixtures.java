@@ -13,6 +13,9 @@ public final class CatalogFixtures {
  public static Horse horse(long id,String name) {
   var horse=new Horse(); horse.id=id; horse.name=name; return horse;
  }
+ public static Horse withParents(Horse horse,Horse sire,Horse dam) {
+  horse.sire=sire; horse.dam=dam; return horse;
+ }
  public static Race race(long id,String name,LocalDate date) {
   var race=new Race(); race.id=id; race.name=name; race.raceDate=date; return race;
  }

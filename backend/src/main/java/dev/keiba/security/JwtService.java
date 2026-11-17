@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class JwtService {
  final SecretKey key; final long ttl;
- JwtService(@Value("${app.jwt-secret}") String secret,@Value("${app.jwt-ttl-seconds}") long ttl) {
+ public JwtService(@Value("${app.jwt-secret}") String secret,@Value("${app.jwt-ttl-seconds}") long ttl) {
   if(secret.getBytes(StandardCharsets.UTF_8).length<32 || ttl<1 || ttl>86400) throw new IllegalArgumentException("JWT key must be at least 32 bytes; TTL 1..86400 seconds");
   key=Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));this.ttl=ttl;
  }
