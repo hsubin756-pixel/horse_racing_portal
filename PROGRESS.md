@@ -171,3 +171,9 @@ JUnit 20개·실제 API 24개·Chromium 10개 시나리오 통과, V1~V8 신규 
 - 0024 백엔드 테스트 25→55개(@Test 기준): AuthService·FavoriteService·CatalogService 단위, `@WebMvcTest` 인증/입력 검증 슬라이스(FavoriteSecurityTest·AuthControllerTest). 테스트용 `CatalogFixtures` 추가.
 - 0025 README를 포트폴리오용으로 재구성(기능 표·패키지 구조·설계 고민·ML 결과의 정직한 기재). 기존 날짜별 메모는 docs/HISTORY.md, 상세 개발 절차는 docs/DEVELOPMENT.md로 내용 그대로 이동.
 - 클라우드 세션은 Maven Central이 차단돼 Gradle 컴파일·JUnit을 실행하지 못했습니다. 대신 의존성 없이 javac로 이동 전/후 소스를 각각 컴파일해 오류 목록을 비교했고, 패키지 이동으로 새로 생긴 접근 제한·누락 import 오류는 0건입니다(외부 라이브러리 미해결 오류는 양쪽 동일). 사용자 PC에서 Gradle `BUILD SUCCESSFUL`, JUnit 14개 클래스·55개 전부 통과, API 통합 테스트 OK(skipped=1, 기존 조건부 테스트)를 확인했습니다. 상세는 TEST_REPORT.md.
+
+## 코드 형식 정리·학습 문서·예측 통합 테스트 보강 (패치 0027~0029) — 2026-11-17
+- 0027 백엔드 Java 전체를 prettier-plugin-java(줄 너비 120, 4칸)로 정리하고 모든 if/for/while 본문에 중괄호를 넣었습니다. 주입 의존성 필드는 `private final`, 축약 매개변수(m·e·j·r 등)는 전체 이름으로 바꿨습니다. 형식 단계는 토큰 비교로 괄호·중괄호 추가, import 정렬, 텍스트 블록 들여쓰기 외 변화가 없음을 확인했고, 전체는 의존성 없는 javac 비교에서 신규 오류 0건입니다. 실행 방법은 docs/DEVELOPMENT.md.
+- 0028 docs/LEARNING.md를 코드 읽기·면접 대비 가이드로 확장(검색·로그인·인증 요청 시퀀스, JPA/OSIV/Flyway, 예측 트랜잭션 분리 이유, 예외 처리, 예상 질문).
+- 0029 `tests/test_ml.py`의 실제 경주 예측 테스트가 가상 샘플만 있는 DB에서 건너뛰던 문제를 수정했습니다. 실제 경주가 없으면 E2E와 같은 `tests/kra_browser_fixture.py`로 임시 KRA 형식 경주를 만들어 `/predict/real` 경로를 검사하고 지웁니다.
+- 클라우드에서는 Gradle·API 통합 테스트를 실행하지 못했습니다. 사용자 PC 확인 전입니다.
